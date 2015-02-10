@@ -9,7 +9,9 @@ import EstructurasAux.solicitudPr;
 import EstructurasAux.ItemInventario;
 import EstructurasAux.aprobacion;
 import EstructurasAux.cotizaciones;
+import EstructurasAux.descargo;
 import EstructurasAux.fdc_001;
+import EstructurasAux.informeDescargos;
 import EstructurasAux.itemRecep;
 import EstructurasAux.itemsOrdenCompra;
 import EstructurasAux.itemsfdc_001;
@@ -524,34 +526,34 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
 
     @Override
-    public boolean CrearProveedor(String NIT, String Nombre, String direccion, int telefono, int telefax, String ciudad, String pais) throws RemoteException
-    {
+    public ArrayList<informeDescargos> generarInforme(String mes) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement1 = "INSERT INTO PROVEEDOR (NIT, NOMBRE) VALUES (?,?)";
-        String statement2 = "INSERT INTO DATOS (DIR, PROVEEDOR_NIT, TELEFONO, TELEFAX, CIUDAD, PAIS) VALUES (?,?,?,?,?,?)";
-        boolean valido=false;
+        String statement = "with algo as(select i.CINTERNO, i.INVENTARIO, i.DESCRIPCION, i.CANTIDAD as enInventario, d.FECHA as fecha, (select nombre from ra where id = d.id) as nombre ,d.ID, d.AREA\n"
+                + "from item  i right outer join DESCARGOS d\n"
+                + "on i.CINTERNO = d.CINTERNO and i.INVENTARIO = d.INVENTARIO ),\n"
+                + "part2 as( select cinterno, inventario, descripcion, eninventario, fecha, nombre, id, area from algo where algo.fecha like ?),\n"
+                + "part3 as(select d.CINTERNO, d.INVENTARIO,sum(d.cantidad) as suma from descargos d, descargos dd where dd.NUMDESCARGO = d.NUMDESCARGO group by d.INVENTARIO, d.CINTERNO)\n"
+                + "select distinct  p2.cinterno, p2.inventario, p2.descripcion, p2.eninventario, p3.suma, p2.nombre, p2.id, p2.area\n"
+                + "from part2 p2 full outer join part3 p3 on p2.cinterno = p3.CINTERNO and p2.inventario= p3.INVENTARIO";
+        informeDescargos fila = null;
+        System.out.println(statement);
+        ArrayList<informeDescargos> listado = new ArrayList<>();
         try {
             con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement1);
-            ps.setString(1, NIT);
-            ps.setString(2, Nombre);
-            rs= ps.executeQuery();
-            rs.next();
-            ps = con.prepareStatement(statement2);
-            ps.setString(1, direccion);
-            ps.setString(2, NIT);
-            ps.setInt(3, telefono);
-            ps.setInt(4, telefax);
-            ps.setString(5, ciudad);
-            ps.setString(6, pais);
+            mes = "%/" + mes + "/%";
+            ps = con.prepareStatement(statement);
+            ps.setString(1, mes);
             rs = ps.executeQuery();
-            rs.next();
-            valido = true;
+            while (rs.next()) {
+                fila = new informeDescargos(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), rs.getString(6), rs.getBigDecimal(7), rs.getString(8));
+                listado.add(fila);
+            }
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }finally{
+        } finally {
+
             try {
                 if (ps != null) {
                     ps.close();
@@ -565,7 +567,142 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             } catch (SQLException ex) {
                 System.out.println("Error cerrando conexion");
             }
-        }  
+        }
+        return listado;
+    }
+
+    @Override
+    public ArrayList<informeDescargos> generarInformePorLab(String mes) throws RemoteException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String statement = "select DESCARGOS.CINTERNO, DESCARGOS.INVENTARIO, item.DESCRIPCION, item.CANTIDAD, sum(DESCARGOS.CANTIDAD) \n"
+                + "from item right outer join DESCARGOS \n"
+                + "on item.CINTERNO = DESCARGOS.CINTERNO and item.INVENTARIO = DESCARGOS.INVENTARIO and DESCARGOS.FECHA like ?\n"
+                + "group by DESCARGOS.CINTERNO, DESCARGOS.INVENTARIO, item.DESCRIPCION, item.CANTIDAD\n"
+                + "order by  DESCARGOS.INVENTARIO || DESCARGOS.CINTERNO";
+        informeDescargos fila = null;
+        System.out.println(statement);
+        ArrayList<informeDescargos> listado = new ArrayList<>();
+        try {
+            con = Conexion.conexion.getConnection();
+            mes = "%/" + mes + "/%";
+            ps = con.prepareStatement(statement);
+            ps.setString(1, mes);
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                fila = new informeDescargos(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5));
+                listado.add(fila);
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexion");
+            }
+        }
+        return listado;
+    }
+
+    @Override
+    public ArrayList<informeDescargos> generarInformePorRA(String area, BigDecimal id) throws RemoteException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String statement = "select DESCARGOS.CINTERNO, DESCARGOS.INVENTARIO, item.DESCRIPCION, item.CANTIDAD, sum(DESCARGOS.CANTIDAD), DESCARGOS.FECHA\n"
+                + "from item, DESCARGOS \n"
+                + "where item.CINTERNO = DESCARGOS.CINTERNO and item.INVENTARIO = DESCARGOS.INVENTARIO and DESCARGOS.ID = ? and DESCARGOS.AREA = ?\n"
+                + "group by DESCARGOS.CINTERNO, DESCARGOS.INVENTARIO, item.DESCRIPCION, item.CANTIDAD, DESCARGOS.FECHA\n"
+                + "order by  DESCARGOS.INVENTARIO || DESCARGOS.CINTERNO";
+        informeDescargos fila = null;
+        System.out.println(statement);
+        ArrayList<informeDescargos> listado = new ArrayList<>();
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
+            ps.setBigDecimal(1, id);
+            ps.setString(2,area );
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                GregorianCalendar c = new GregorianCalendar();
+                c.setTime(rs.getDate(6));
+                fila = new informeDescargos(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), c);
+                listado.add(fila);
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexion");
+            }
+        }
+        return listado;
+    }
+
+    @Override
+    public boolean CrearProveedor(String NIT, String Nombre, String direccion, int telefono, int telefax, String ciudad, String pais) throws RemoteException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String statement1 = "INSERT INTO PROVEEDOR (NIT, NOMBRE) VALUES (?,?)";
+        String statement2 = "INSERT INTO DATOS (DIR, PROVEEDOR_NIT, TELEFONO, TELEFAX, CIUDAD, PAIS) VALUES (?,?,?,?,?,?)";
+        boolean valido = false;
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement1);
+            ps.setString(1, NIT);
+            ps.setString(2, Nombre);
+            rs = ps.executeQuery();
+            rs.next();
+            ps = con.prepareStatement(statement2);
+            ps.setString(1, direccion);
+            ps.setString(2, NIT);
+            ps.setInt(3, telefono);
+            ps.setInt(4, telefax);
+            ps.setString(5, ciudad);
+            ps.setString(6, pais);
+            rs = ps.executeQuery();
+            rs.next();
+            valido = true;
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexion");
+            }
+        }
         return valido;
     }
 
@@ -1301,7 +1438,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
             ps.setString(1, NIT);
-            ps.setString(2,NIT);
+            ps.setString(2, NIT);
             rs = ps.executeQuery();
             while (rs.next()) {
                 p = new proveedor(rs.getString(2), rs.getString(1), rs.getString(3), rs.getInt(4), rs.getInt(5));
@@ -1491,14 +1628,13 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 + "from ITMXORDEN where ORDENCOMPRA_NUM_ORDEN = ?";
         recepcionProd rec = null;
         itemRecep item = null;
-        ArrayList<itemRecep> articulos= new ArrayList<>();
+        ArrayList<itemRecep> articulos = new ArrayList<>();
         try {
-            con =Conexion.conexion.getConnection();
-            ps= con.prepareStatement(statement);
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, numorden);
             rs = ps.executeQuery();
-            while(rs.next())
-            {
+            while (rs.next()) {
                 rec = new recepcionProd(numorden, null, id, area, null);
                 proveedor datosProveedor = this.getDatosProveedor(rs.getString(3));
                 rec.setP(datosProveedor);
@@ -1508,7 +1644,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }finally {
+        } finally {
 
             try {
                 if (ps != null) {
@@ -1526,10 +1662,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return rec;
     }
-   
+
     @Override
-    public ItemInventario datosCompletosItem(BigDecimal cinterno, String lab) throws RemoteException
-    {
+    public ItemInventario datosCompletosItem(BigDecimal cinterno, String lab) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1537,17 +1672,16 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         ItemInventario itm = null;
         try {
             con = Conexion.conexion.getConnection();
-            ps =con.prepareStatement(statement);
+            ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, cinterno);
             ps.setString(2, lab);
             rs = ps.executeQuery();
-            while(rs.next())
-            {
+            while (rs.next()) {
                 itm = new ItemInventario(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getFloat(5), rs.getFloat(6), rs.getString(7), rs.getString(8), rs.getString(9), 0);
             }
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }finally {
+        } finally {
 
             try {
                 if (ps != null) {
@@ -1565,18 +1699,17 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return itm;
     }
-    
+
     @Override
-    public boolean recibirPedido(BigDecimal numOrden, BigDecimal idRec, String area, ArrayList<itemRecep> articulos)throws RemoteException
-    {
+    public boolean recibirPedido(BigDecimal numOrden, BigDecimal idRec, String area, ArrayList<itemRecep> articulos) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement ="INSERT INTO RECEPCION (CINTERNO, INVENTARIO, NUM_ORDEN, FECHALLEGADA, FECHAVENCIMIENTO, CCALIDAD, CESP, MVERIFICACION, RECEPTOR, AREAREC) VALUES (?, ?, ?, TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS'), TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS'), ?, ?, ?, ?, ?)";
-        boolean valido=false;
+        String statement = "INSERT INTO RECEPCION (CINTERNO, INVENTARIO, NUM_ORDEN, FECHALLEGADA, FECHAVENCIMIENTO, CCALIDAD, CESP, MVERIFICACION, RECEPTOR, AREAREC) VALUES (?, ?, ?, TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS'), TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS'), ?, ?, ?, ?, ?)";
+        boolean valido = false;
         try {
             con = Conexion.conexion.getConnection();
-            ps =con.prepareStatement(statement);
+            ps = con.prepareStatement(statement);
             ps.setBigDecimal(3, numOrden);
             ps.setBigDecimal(9, idRec);
             ps.setString(10, area);
@@ -1594,7 +1727,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             valido = true;
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }finally {
+        } finally {
 
             try {
                 if (ps != null) {
@@ -1611,29 +1744,27 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
         return valido;
-    
-    
+
     }
-    
-    public ArrayList<proveedor> todosProveedores () throws RemoteException{
+
+    public ArrayList<proveedor> todosProveedores() throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement ="select nit, nombre from proveedor";
+        String statement = "select nit, nombre from proveedor";
         ArrayList<proveedor> proveedores = new ArrayList<>();
         proveedor prov = null;
         try {
-            con =  Conexion.conexion.getConnection();
+            con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
             rs = ps.executeQuery();
-            while(rs.next())
-            {
+            while (rs.next()) {
                 prov = new proveedor(rs.getString(1), rs.getString(2));
                 proveedores.add(prov);
             }
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }finally {
+        } finally {
 
             try {
                 if (ps != null) {
@@ -1652,8 +1783,46 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return proveedores;
     }
 
-    
-    
+    @Override
+    public boolean realizarDescargo(descargo d) throws RemoteException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String statement = "INSERT INTO DESCARGOS(FECHA, ID, AREA, CANTIDAD, CINTERNO, INVENTARIO) VALUES (TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS'),?,?,?,?,?)";
+        boolean valido = false;
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
+            ps.setDate(1, new Date(d.getFecha().getTimeInMillis()));
+            ps.setBigDecimal(2, d.getId());
+            ps.setString(3, d.getArea());
+            ps.setFloat(4, d.getCantidad());
+            ps.setBigDecimal(5, d.getCinterno());
+            ps.setString(6, d.getArea());
+            rs = ps.executeQuery();
+            rs.next();
+            valido = true;
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexion");
+            }
+        }
+        return valido;
+    }
+
     //Generacion de archivos .pdf
     @Override
     public File pdf_001(String ruta, fdc_001 archivo) throws RemoteException {
