@@ -751,6 +751,85 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return archivo;
     }
 
+    @Override
+    public boolean crearDA(String id, String nombre, String correo, String psw)throws RemoteException
+    {
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        Connection con = null;
+        boolean creado = false;
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement("INSERT INTO da VALUES(?,?,?,?)");
+            ps.setBigDecimal(1, new BigDecimal(id));
+            ps.setString(2, nombre);
+            ps.setString(3, correo);
+            ps.setString(4, psw);
+            rs = ps.executeQuery();
+            rs.next();
+            con.commit();
+            creado = true;
+        } catch (SQLException ex) {
+            creado = false;
+            System.out.println("Error en la función \"Crear RA\"");
+
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexión");
+            }
+        }
+
+        return creado;
+    }
+
+    @Override
+    public String getNombreDA(String id) throws RemoteException
+    {
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        Connection con = null;
+        String nombre = "";
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement("select nombre from da where id_da = ?");
+            ps.setBigDecimal(1, new BigDecimal(id));
+            rs = ps.executeQuery();
+            rs.next();
+            nombre = rs.getString(1);
+        } catch (SQLException ex) {
+            System.out.println("Error en la función \"Crear RA\"");
+
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexión");
+            }
+        }
+
+        return nombre;
+    }
+
     //Metodos del usuario
     @Override
     public boolean validarTipoUsuario(String identificacion, String contrasena, String tipo) throws RemoteException {
@@ -1722,6 +1801,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 ps.setString(7, articulo.getcEsp());
                 ps.setString(8, articulo.getmVerificacion().toString());
                 rs = ps.executeQuery();
+                this.updateCantidad(articulo.getCinterno(), articulo.getLab(), articulo.getcAprobada());
                 rs.next();
             }
             valido = true;
@@ -1746,6 +1826,44 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return valido;
 
     }
+    
+    public boolean updateCantidad(BigDecimal cinterno, String lab, float cantidad) throws RemoteException
+    {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String statement = "update item set cantidad = cantidad +? where CINTERNO =? and INVENTARIO= ?";
+        boolean updated = false;
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
+            ps.setFloat(1, cantidad);
+            ps.setBigDecimal(2, cinterno);
+            ps.setString(3, lab);
+            rs =ps.executeQuery();
+            rs.next();
+            updated = true;
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexion");
+            }
+        }
+        return updated;
+    }
+    
 
     public ArrayList<proveedor> todosProveedores() throws RemoteException {
         Connection con = null;
@@ -1800,6 +1918,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(5, d.getCinterno());
             ps.setString(6, d.getArea());
             rs = ps.executeQuery();
+            this.updateCantidad(d.getCinterno(), d.getArea(), d.getCantidad()*-1);
             rs.next();
             valido = true;
         } catch (SQLException ex) {
