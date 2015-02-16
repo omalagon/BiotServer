@@ -848,6 +848,43 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
         return nombre;
     }
+    
+    @Override
+    public String getNombreRA(String id) throws RemoteException
+    {
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        Connection con = null;
+        String nombre = "";
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement("select nombre from ra where id = ?");
+            ps.setBigDecimal(1, new BigDecimal(id));
+            rs = ps.executeQuery();
+            rs.next();
+            nombre = rs.getString(1);
+        } catch (SQLException ex) {
+            System.out.println("Error en la función \"Crear RA\"");
+
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexión");
+            }
+        }
+
+        return nombre;
+    }
 
     @Override
     public boolean crearItem(ItemInventario item)throws RemoteException
