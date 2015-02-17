@@ -43,6 +43,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.sql.Connection;
@@ -398,7 +399,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         PreparedStatement ps = null;
         ResultSet rs = null;
         String statement = "";
-        BigDecimal cAprobada = null;
+        BigDecimal cAprobada = new BigDecimal(0);
         try {
             con = Conexion.conexion.getConnection();
             statement = "select caprobada "
@@ -411,9 +412,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             rs = ps.executeQuery();
             rs.next();
             cAprobada = rs.getBigDecimal(1);
+            System.out.println("");
+            System.out.println("");
+            System.out.println("");
+            System.out.println("");
+            System.out.println(rs.getBigDecimal(1));
         } catch (SQLException ex) {
             System.out.println("Error en la funcion \"getCantAprobada\"");
-            //Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -430,7 +436,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 System.out.println("Error cerrando conexion");
             }
         }
-
+        System.out.println(cAprobada);
         return cAprobada;
     }
 
@@ -887,6 +893,42 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
+    public String getNombreAO(String id) throws RemoteException
+    {
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        Connection con = null;
+        String nombre = "";
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement("select nombre from ao where id = ?");
+            ps.setBigDecimal(1, new BigDecimal(id));
+            rs = ps.executeQuery();
+            rs.next();
+            nombre = rs.getString(1);
+        } catch (SQLException ex) {
+            System.out.println("Error en la función \"Crear RA\"");
+
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexión");
+            }
+        }
+
+        return nombre;
+    }
+    @Override
     public boolean crearItem(ItemInventario item)throws RemoteException
     {
         PreparedStatement ps = null;
@@ -1280,10 +1322,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, id);
             rs = ps.executeQuery();
-
-            if (rs.getRow() == 0) {
-                System.out.println("error");
-            }
             while (rs.next()) {
                 fecha.setTime(rs.getDate(2));
                 solicitud = new solicitudPr(fecha, rs.getString(3), rs.getBigDecimal(1), id, null, null);
@@ -1804,7 +1842,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 ps.setString(4, p.getInventario());
                 ps.setFloat(5, p.getCaprobada());
                 ps.setFloat(6, p.getPrecioU());
-                ps.executeQuery();
+                ps.executeUpdate();
             }
             valido = true;
         } catch (SQLException ex) {
@@ -1915,7 +1953,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement = "INSERT INTO RECEPCION (CINTERNO, INVENTARIO, NUM_ORDEN, FECHALLEGADA, FECHAVENCIMIENTO, CCALIDAD, CESP, MVERIFICACION, RECEPTOR, AREAREC) VALUES (?, ?, ?, TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS'), TO_DATE(?, 'YYYY-MM-DD HH24:MI:SS'), ?, ?, ?, ?, ?)";
+        String statement = "INSERT INTO RECEPCION (CINTERNO, INVENTARIO, NUM_ORDEN, FECHALLEGADA, FECHAVENCIMIENTO, CCALIDAD, CESP, MVERIFICACION, RECEPTOR, AREAREC) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         boolean valido = false;
         try {
             con = Conexion.conexion.getConnection();
@@ -2006,7 +2044,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement);
             rs = ps.executeQuery();
             while (rs.next()) {
-                prov = new proveedor(rs.getString(1), rs.getString(2));
+                prov = new proveedor(rs.getString(2), rs.getString(1));
                 proveedores.add(prov);
             }
         } catch (SQLException ex) {
