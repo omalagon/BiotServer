@@ -394,12 +394,12 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public BigDecimal getCantAprobada(cotizaciones c) throws RemoteException {
+    public float getCantAprobada(cotizaciones c) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         String statement = "";
-        BigDecimal cAprobada = new BigDecimal(0);
+        float cAprobada = 0;
         try {
             con = Conexion.conexion.getConnection();
             statement = "select caprobada "
@@ -410,13 +410,13 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(2, c.getCinterno());
             ps.setString(3, c.getLab());
             rs = ps.executeQuery();
-            rs.next();
-            cAprobada = rs.getBigDecimal(1);
+            while(rs.next())
+            cAprobada = rs.getFloat(1);
             System.out.println("");
             System.out.println("");
             System.out.println("");
             System.out.println("");
-            System.out.println(rs.getBigDecimal(1));
+            //System.out.println(rs.getFloat(1));
         } catch (SQLException ex) {
             System.out.println("Error en la funcion \"getCantAprobada\"");
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
@@ -441,12 +441,12 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public BigDecimal getCantSolicitada(int codigo, String lab, BigDecimal numSol) throws RemoteException {
+    public float getCantSolicitada(int codigo, String lab, BigDecimal numSol) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
         String statement = "";
-        BigDecimal cSolicitada = null;
+        float cSolicitada = 0;
         try {
             con = Conexion.conexion.getConnection();
             statement = "select CANTIDADSOL from itxsol where ITEM_CINTERNO = ? and ITEM_INVENTARIO = ? and num_sol = ?";
@@ -456,7 +456,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(3, numSol);
             rs = ps.executeQuery();
             rs.next();
-            cSolicitada = rs.getBigDecimal(1);
+            cSolicitada = rs.getFloat(1);
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         } finally {

@@ -15,6 +15,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JOptionPane;
 
 /**
  * 
@@ -40,6 +41,7 @@ public class RMIServer {
             Registry reg = LocateRegistry.createRegistry(222);
             reg.bind("Test", new Usuario());
             System.out.println("Started");
+            JOptionPane.showMessageDialog(null, "Servidor Iniciado");
         }
         catch (AlreadyBoundException ex) {
             Logger.getLogger(RMIServer.class.getName()).log(Level.SEVERE, null, ex);
