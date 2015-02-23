@@ -39,7 +39,7 @@ public class conexion  {
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(conexion.class.getName()).log(Level.SEVERE, null, ex);
         }
-           Connection con=DriverManager.getConnection("jdbc:mysql://localhost/biotrends","root","oscar");
+           Connection con=DriverManager.getConnection("jdbc:mysql://localhost/biotrends","root","arcgis2015");
        return con;
    }
     
