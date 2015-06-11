@@ -23,20 +23,13 @@ import EstructurasAux.users;
 import com.itextpdf.text.Chunk;
 import com.itextpdf.text.Document;
 import com.itextpdf.text.DocumentException;
-import com.itextpdf.text.Element;
 import com.itextpdf.text.Font;
 import com.itextpdf.text.FontFactory;
-import com.itextpdf.text.pdf.BaseFont;
-import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.itextpdf.text.Image;
 import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Paragraph;
-import com.itextpdf.text.html.simpleparser.TableWrapper;
 import com.itextpdf.text.pdf.PdfPTable;
-import java.awt.Desktop;
-import java.awt.Toolkit;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -53,15 +46,13 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
-import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.print.DocFlavor;
-import javax.swing.JLabel;
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  *
- * @author Oscar_Malagon
+ * @author Oscar Dario Malagon Murcia
  */
 public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, Serializable {
 
@@ -77,6 +68,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         ResultSet rs = null;
         Connection con = null;
         boolean creado = false;
+        psw = this.encriptar(psw);
         try {
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement("INSERT INTO ra (LAB, CARGO, ID, NOMBRE, CORREO, PSW, ID_DA) VALUES(?,?,?,?,?,?,?)");
@@ -121,6 +113,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         ResultSet rs = null;
         Connection con = null;
         boolean creado = false;
+        psw = this.encriptar(psw);
         try {
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement("INSERT INTO ao (ID, NOMBRE, CORREO, PSW, ID_DA) VALUES (?,?,?,?,?)");
@@ -160,7 +153,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        int numero;
+        String numero;
         String lab;
         String descripcion;
         String presentacion;
@@ -177,7 +170,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement);
             rs = ps.executeQuery();
             while (rs.next()) {
-                numero = rs.getInt("CINTERNO");
+                numero = rs.getString("CINTERNO");
                 lab = rs.getString("INVENTARIO");
                 descripcion = rs.getString("DESCRIPCION");
                 presentacion = rs.getString("PRESENTACION");
@@ -218,26 +211,39 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         String statement;
         String statement2;
+        String statement3;
+        String statement4;
         ArrayList<cotizaciones> cot = new ArrayList<>();
         cotizaciones c = null;
         try {
             con = Conexion.conexion.getConnection();
             statement = "create view part1 AS(select cp.COTIZACION_ID as cotID, a.NOMBRE as AONom, r.NOMBRE as RANom, cp.PROVEEDOR_NIT as pNit, cp.ITEM_INVENTARIO as lab, cp.ITEM_CINTERNO as itm, cp.PRECIO_U as pre, sp.NUM_SOL as nSol, cp.REVISADA as revi\n"
                     + "from COTIZACION_PROD cp, SOLICITUDPR sp, AO a, ra r\n"
-                    + "where sp.NUM_SOL= cp.NUM_SOL and a.ID = cp.AO_ID  and A.ID = sp.AO_ID and r.ID = sp.RA_ID)";
-            statement2 = "select cotid, aonom, ranom, pnit, lab, itm, pre, nsol, cantidadsol from part1, itxsol where nsol = itxsol.num_sol and lab = itxsol.item_inventario and itm = itxsol.item_cinterno and revi = ?";
+                    + "where sp.NUM_SOL= cp.NUM_SOL and a.ID = cp.AO_ID  and A.ID = sp.AO_ID and r.ID = sp.RA_ID and cp.ENORDEN= 'NO')";
+            statement2="create view part2 as (select cotid, aonom, ranom, pnit, lab, itm, pre, nsol, sum(cantidadsol) from part1, itxsol where nsol = itxsol.num_sol and lab = itxsol.item_inventario and itm = itxsol.item_cinterno and revi = '"+parametro+"' )";
+            statement3= "create view part3 as(select cotid, aonom, ranom, pnit, lab, itm, pre, nsol, cantidadsol from part1, itxsol where nsol = itxsol.num_sol and lab = itxsol.item_inventario and itm = itxsol.item_cinterno and revi = '"+parametro+"' )";
+            //statement2 = "select distinct cotid, aonom, ranom, pnit, lab, itm, pre, nsol, cantidadsol from part1, itxsol where nsol = itxsol.num_sol and lab = itxsol.item_inventario and itm = itxsol.item_cinterno and revi = ?";
+            statement4 = "select * from part2\n"
+                    + "union\n"
+                    + "select * from part3 where part3.cotid <>(select cotid from part2);";
             ps = con.prepareStatement(statement);
             ps.executeUpdate(statement);
             ps = con.prepareStatement(statement2);
-            ps.setString(1, parametro);
+            ps.executeUpdate(statement2);
+            ps = con.prepareStatement(statement3);
+            ps.executeUpdate(statement3);
+            ps = con.prepareStatement(statement4);
+            //ps.setString(1, parametro);
             rs = ps.executeQuery();
             System.out.println(statement);
             while (rs.next()) {
-                c = new cotizaciones(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getBigDecimal(6), rs.getFloat(7), rs.getBigDecimal(8), rs.getFloat(9), new Float(-1));
+                c = new cotizaciones(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getFloat(7), rs.getBigDecimal(8), rs.getFloat(9), new Float(-1));
                 cot.add(c);
                 System.out.println("hola");
             }
             ps.executeUpdate("drop view part1;");
+            ps.executeUpdate("drop view part2;");
+            ps.executeUpdate("drop view part3;");
         } catch (SQLException ex) {
             System.out.println(ex);
             System.out.println("Error en la función \"Crear getCotizaciones\"");
@@ -284,7 +290,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             statement = "INSERT INTO APROBADOS (COTIZACION_ID, ITEM_CINTERNO, ITEM_INVENTARIO, CAPROBADA, FECHAAPROB, ID_DA) VALUES (?,?,?,?,?,?)";
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, ap.getIdCot());
-            ps.setBigDecimal(2, ap.getCodigo());
+            ps.setString(2, ap.getCodigo());
             ps.setString(3, ap.getLab());
             ps.setFloat(4, ap.getAprobado());
             ps.setDate(5, new Date(ap.getFecha().getTimeInMillis()));
@@ -328,7 +334,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setString(1, parametro);
             ps.setBigDecimal(2, ap.getIdCot());
             ps.setString(3, ap.getLab());
-            ps.setBigDecimal(4, ap.getCodigo());
+            ps.setString(4, ap.getCodigo());
             ps.executeUpdate();
             validacion = true;
         } catch (SQLException ex) {
@@ -365,7 +371,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             statement = "delete from aprobados where cotizacion_id = ? and item_cinterno =? and item_inventario =?";
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, ap.getIdCot());
-            ps.setBigDecimal(2, ap.getCodigo());
+            ps.setString(2, ap.getCodigo());
             ps.setString(3, ap.getLab());
             ps.executeUpdate();
             this.actCot(ap, "NO");
@@ -398,7 +404,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement = "";
+        String statement = new String();
         float cAprobada = 0;
         try {
             con = Conexion.conexion.getConnection();
@@ -407,7 +413,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                     + "where COTIZACION_ID = ? and ITEM_CINTERNO = ? and ITEM_INVENTARIO = ?";
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, c.getCotizacionId());
-            ps.setBigDecimal(2, c.getCinterno());
+            ps.setString(2, c.getCinterno());
             ps.setString(3, c.getLab());
             rs = ps.executeQuery();
             while (rs.next()) {
@@ -442,7 +448,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public float getCantSolicitada(int codigo, String lab, BigDecimal numSol) throws RemoteException {
+    public float getCantSolicitada(String codigo, String lab, BigDecimal numSol) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -452,7 +458,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             con = Conexion.conexion.getConnection();
             statement = "select CANTIDADSOL from itxsol where ITEM_CINTERNO = ? and ITEM_INVENTARIO = ? and num_sol = ?";
             ps = con.prepareStatement(statement);
-            ps.setInt(1, codigo);
+            ps.setString(1, codigo);
             ps.setString(2, lab);
             ps.setBigDecimal(3, numSol);
             rs = ps.executeQuery();
@@ -509,7 +515,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(1, numSol);
             rs = ps.executeQuery();
             while (rs.next()) {
-                item = new itemsfdc_001(rs.getFloat(1), rs.getString(2), rs.getBigDecimal(3), rs.getString(4), rs.getFloat(5), rs.getString(6), rs.getFloat(7), rs.getFloat(8), rs.getBigDecimal(9));
+                item = new itemsfdc_001(rs.getFloat(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getFloat(5), rs.getString(6), rs.getFloat(7), rs.getFloat(8), rs.getBigDecimal(9));
                 articulos.add(item);
 
             }
@@ -569,7 +575,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement4);
             rs = ps.executeQuery();
             while (rs.next()) {
-                fila = new informeDescargos(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), rs.getString(6), rs.getBigDecimal(7), rs.getString(8));
+                fila = new informeDescargos(rs.getString(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), rs.getString(6), rs.getBigDecimal(7), rs.getString(8));
                 listado.add(fila);
             }
             ps.executeUpdate("drop view gInforme1;");
@@ -616,7 +622,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setString(1, mes);
             rs = ps.executeQuery();
             while (rs.next()) {
-                fila = new informeDescargos(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5));
+                fila = new informeDescargos(rs.getString(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5));
                 listado.add(fila);
                 System.out.println(fila.getCinterno());
                 System.out.println(fila.getEninventario());
@@ -667,7 +673,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             while (rs.next()) {
                 GregorianCalendar c = new GregorianCalendar();
                 c.setTime(rs.getDate(6));
-                fila = new informeDescargos(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), c);
+                fila = new informeDescargos(rs.getString(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), c);
                 listado.add(fila);
             }
         } catch (SQLException ex) {
@@ -692,7 +698,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public boolean CrearProveedor(String NIT, String Nombre, String direccion, int telefono, int telefax, String ciudad, String pais) throws RemoteException {
+    public boolean CrearProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String pais) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -708,8 +714,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement2);
             ps.setString(1, direccion);
             ps.setString(2, NIT);
-            ps.setInt(3, telefono);
-            ps.setInt(4, telefax);
+            ps.setString(3, telefono);
+            ps.setString(4, telefax);
             ps.setString(5, ciudad);
             ps.setString(6, pais);
             ps.executeUpdate();
@@ -785,6 +791,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         ResultSet rs = null;
         Connection con = null;
         boolean creado = false;
+        psw = this.encriptar(psw);
         try {
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement("INSERT INTO da VALUES(?,?,?,?)");
@@ -926,6 +933,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return nombre;
     }
 
+    //Va a presentar problemas
     @Override
     public boolean crearItem(ItemInventario item) throws RemoteException {
         PreparedStatement ps = null;
@@ -964,6 +972,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return valido;
     }
 
+    @Override
     public ArrayList<BuscarUsuario> buscarEmpleado(String parametro, String valor) throws RemoteException {
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -997,6 +1006,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return lista;
     }
 
+    @Override
     public void asociarItem(String NIT, String labo, String precio) throws RemoteException {
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1040,7 +1050,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     //Metodos del usuario
-
     @Override
     public boolean validarTipoUsuario(String identificacion, String contrasena, String tipo) throws RemoteException {
         Connection conex = null;
@@ -1048,6 +1057,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         String identificador = "id";
         PreparedStatement ps = null;
         ResultSet rs = null;
+        contrasena = this.encriptar(contrasena);
+        System.out.println(contrasena);
         if (tipo.length() > 2 && identificador.length() > 5) {
             validacion = false;
         }
@@ -1068,10 +1079,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                     validacion = true;
                 }
             }
-
+            System.out.println(contrasena);
         } catch (SQLException ex) {
             validacion = false;
-
+            System.out.println(ex);
             System.out.println("Error funcion \"Validad tipo usuario\" ");
         } finally {
 
@@ -1109,7 +1120,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(1, id);
             rs = ps.executeQuery();
             rs.next();
-            area = rs.getString("lab");
+            area = rs.getString(1);
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
 
@@ -1145,7 +1156,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        int numero;
+        String numero;
         String descripcion;
         String presentacion;
         float cantidad;
@@ -1159,7 +1170,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setString(1, sector);
             rs = ps.executeQuery();
             while (rs.next()) {
-                numero = rs.getInt("CINTERNO");
+                numero = rs.getString("CINTERNO");
                 descripcion = rs.getString("DESCRIPCION");
                 presentacion = rs.getString("PRESENTACION");
                 cantidad = rs.getFloat("Cantidad");
@@ -1318,7 +1329,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement);
             for (ItemInventario i : itemsSolicitud) {
 
-                ps.setBigDecimal(1, new BigDecimal(i.getNumero()));
+                ps.setString(1, i.getNumero());
                 ps.setString(2, i.getInventario());
                 ps.setBigDecimal(3, numSol);
                 ps.setFloat(4, i.getCantidadSolicitada());
@@ -1564,7 +1575,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(1, numSol);
             rs = ps.executeQuery();
             while (rs.next()) {
-                item = new ItemInventario(rs.getInt(3), rs.getString(2), rs.getString(4), rs.getString(5), rs.getFloat(1), 0, "", "", "", rs.getFloat(6));
+                item = new ItemInventario(rs.getString(3), rs.getString(2), rs.getString(4), rs.getString(5), rs.getFloat(1), 0, "", "", "", rs.getFloat(6));
                 listado.add(item);
             }
         } catch (SQLException ex) {
@@ -1589,7 +1600,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public ArrayList<itemxproveedor> getItemxproveedor(String inv, BigDecimal codigo) throws RemoteException {
+    public ArrayList<itemxproveedor> getItemxproveedor(String inv, String codigo) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1606,8 +1617,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                     + "      item.INVENTARIO = ? and "
                     + "      nit = ixp.PROVEEDOR_NIT";
             ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, codigo);
-            ps.setBigDecimal(2, codigo);
+            ps.setString(1, codigo);
+            ps.setString(2, codigo);
             ps.setString(3, inv);
             ps.setString(4, inv);
             rs = ps.executeQuery();
@@ -1637,7 +1648,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public boolean generarCotizacion(BigDecimal idAO, String proveedorNit, BigDecimal codigo, String lab, BigDecimal numSol, float precio) throws RemoteException {
+    public boolean generarCotizacion(BigDecimal idAO, String proveedorNit, String codigo, String lab, BigDecimal numSol, float precio) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1653,7 +1664,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, idAO);
             ps.setString(2, proveedorNit);
-            ps.setBigDecimal(3, codigo);
+            ps.setString(3, codigo);
             ps.setString(4, lab);
             ps.setBigDecimal(5, numSol);
             ps.setFloat(6, precio);
@@ -1691,7 +1702,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         boolean act = false;
         try {
             con = Conexion.conexion.getConnection();
-            statement = "delete from APROBADOS a where a.COTIZACION_ID = (select aprobados.COTIZACION_ID from aprobados, COTIZACION_PROD where COTIZACION_PROD.COTIZACION_ID = aprobados.COTIZACION_ID and COTIZACION_PROD.NUM_SOL = ?)";
+            statement = "delete from APROBADOS a where a.COTIZACION_ID = "
+                    + "(select aprobados.COTIZACION_ID from aprobados, COTIZACION_PROD"
+                    + " where COTIZACION_PROD.COTIZACION_ID = aprobados.COTIZACION_ID and COTIZACION_PROD.NUM_SOL = ?)";
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, numSol);
             ps.executeUpdate();
@@ -1753,18 +1766,20 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement = "select i.CINTERNO, i.INVENTARIO, i.DESCRIPCION, a.CAPROBADA, i.PRESENTACION, c.PRECIO_U, s.OBSERVACIONES\n"
+        String statement = "select i.CINTERNO, i.INVENTARIO, i.DESCRIPCION, a.CAPROBADA, i.PRESENTACION, c.PRECIO_U, s.OBSERVACIONES,c.COTIZACION_ID\n"
                 + "from COTIZACION_PROD c, APROBADOS a, item i, SOLICITUDPR s\n"
-                + "where c.PROVEEDOR_NIT =?  and c.REVISADA = 'SI' and c.COTIZACION_ID = a.COTIZACION_ID and c.ITEM_CINTERNO = i.CINTERNO and  c.ITEM_INVENTARIO = i.INVENTARIO and s.NUM_SOL = c.NUM_SOL";
+                + "where c.PROVEEDOR_NIT =?  and c.REVISADA = 'SI' and c.COTIZACION_ID = a.COTIZACION_ID and "
+                + "c.ITEM_CINTERNO = i.CINTERNO and  c.ITEM_INVENTARIO = i.INVENTARIO and s.NUM_SOL = c.NUM_SOL and c.ENORDEN ='NO'";
         itemsOrdenCompra i = null;
         ArrayList<itemsOrdenCompra> pedido = new ArrayList<>();
+        System.out.println(statement);
         try {
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
             ps.setString(1, proveedor);
             rs = ps.executeQuery();
             while (rs.next()) {
-                i = new itemsOrdenCompra(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getString(5), rs.getFloat(6), rs.getString(6));
+                i = new itemsOrdenCompra(rs.getString(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getString(5), rs.getFloat(6), rs.getString(7), rs.getBigDecimal(8));
                 i.setvTotal(i.getCaprobada() * i.getPrecioU());
                 pedido.add(i);
             }
@@ -1784,6 +1799,34 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 System.out.println("Error cerrando conexion");
             }
         }
+        //Actualizar Tabla Cotizacion
+        con = null;
+        ps = null;
+        rs = null;
+        statement = "UPDATE cotizacion_prod SET `ENORDEN`='SI' WHERE `COTIZACION_ID`=?";
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
+            for (itemsOrdenCompra p : pedido) {
+                ps.setBigDecimal(1, p.getId_cotizacion());
+                ps.executeUpdate();
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexion");
+            }
+        }
+
         return pedido;
     }
 
@@ -1875,7 +1918,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setString(2, proveedor);
             ps.setString(7, Obs);
             for (itemsOrdenCompra p : pedido) {
-                ps.setBigDecimal(3, p.getCinterno());
+                ps.setString(3, p.getCinterno());
                 ps.setString(4, p.getInventario());
                 ps.setFloat(5, p.getCaprobada());
                 ps.setFloat(6, p.getPrecioU());
@@ -1923,7 +1966,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 rec = new recepcionProd(numorden, null, id, area, null);
                 proveedor datosProveedor = this.getDatosProveedor(rs.getString(3));
                 rec.setP(datosProveedor);
-                item = new itemRecep(rs.getBigDecimal(4), rs.getString(5), rs.getString(8), rs.getFloat(6), rs.getFloat(7));
+                item = new itemRecep(rs.getString(4), rs.getString(5), rs.getString(8), rs.getFloat(6), rs.getFloat(7));
                 articulos.add(item);
                 rec.setArticulos(articulos);
             }
@@ -1949,7 +1992,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public ItemInventario datosCompletosItem(BigDecimal cinterno, String lab) throws RemoteException {
+    public ItemInventario datosCompletosItem(String cinterno, String lab) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1958,11 +2001,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         try {
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, cinterno);
+            ps.setString(1, cinterno);
             ps.setString(2, lab);
             rs = ps.executeQuery();
             while (rs.next()) {
-                itm = new ItemInventario(rs.getInt(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getFloat(5), rs.getFloat(6), rs.getString(7), rs.getString(8), rs.getString(9), 0);
+                itm = new ItemInventario(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getFloat(5), rs.getFloat(6), rs.getString(7), rs.getString(8), rs.getString(9), 0);
             }
         } catch (SQLException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
@@ -1990,8 +2033,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement = "INSERT INTO RECEPCION (CINTERNO, INVENTARIO, NUM_ORDEN, FECHALLEGADA, FECHAVENCIMIENTO, CCALIDAD, CESP, MVERIFICACION, RECEPTOR, AREAREC) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String statement = "INSERT INTO RECEPCION (CINTERNO, INVENTARIO, NUM_ORDEN, FECHALLEGADA, FECHAVENCIMIENTO, CCALIDAD, CESP, MVERIFICACION, RECEPTOR, AREAREC, PRECIOANTERIOR) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)";
         boolean valido = false;
+        float precioAnterior = 0;
         try {
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
@@ -1999,15 +2043,33 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(9, idRec);
             ps.setString(10, area);
             for (itemRecep articulo : articulos) {
-                ps.setBigDecimal(1, articulo.getCinterno());
+                ps.setString(1, articulo.getCinterno());
                 ps.setString(2, articulo.getLab());
                 ps.setDate(4, new Date(articulo.getfLlegada().getTime()));
                 ps.setDate(5, new Date(articulo.getfVencimiento().getTime()));
                 ps.setString(6, articulo.getcCalidad());
                 ps.setString(7, articulo.getcEsp());
                 ps.setString(8, articulo.getmVerificacion().toString());
+                ps.setFloat(11, 0);
                 ps.executeUpdate();
                 this.updateCantidad(articulo.getCinterno(), articulo.getLab(), articulo.getcAprobada());
+                ps = con.prepareStatement("SELECT precio from item where CINTERNO = ? and inventario = ?");
+                ps.setString(1, articulo.getCinterno());
+                ps.setString(2, articulo.getLab());
+                rs = ps.executeQuery();
+                rs.next();
+                precioAnterior = rs.getFloat(1);
+                ps = con.prepareStatement("UPDATE recepcion SET PRECIOANTERIOR= ? WHERE CINTERNO=? and INVENTARIO= ? and NUM_ORDEN=?");
+                ps.setFloat(1, precioAnterior);
+                ps.setString(2, articulo.getCinterno());
+                ps.setString(3, articulo.getLab());
+                ps.setBigDecimal(4, numOrden);
+                ps.executeUpdate();
+                ps = con.prepareStatement("UPDATE item SET precio=?  WHERE CINTERNO=? and inventario=?");
+                ps.setFloat(1, articulo.getPrecio());
+                ps.setString(2, articulo.getCinterno());
+                ps.setString(3, articulo.getLab());
+                ps.executeUpdate();
             }
             valido = true;
         } catch (SQLException ex) {
@@ -2032,7 +2094,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     }
 
-    public boolean updateCantidad(BigDecimal cinterno, String lab, float cantidad) throws RemoteException {
+    @Override
+    public boolean updateCantidad(String cinterno, String lab, float cantidad) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2042,7 +2105,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
             ps.setFloat(1, cantidad);
-            ps.setBigDecimal(2, cinterno);
+            ps.setString(2, cinterno);
             ps.setString(3, lab);
             ps.executeUpdate();
             updated = true;
@@ -2067,6 +2130,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return updated;
     }
 
+    @Override
     public ArrayList<proveedor> todosProveedores() throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
@@ -2117,7 +2181,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setBigDecimal(2, d.getId());
             ps.setString(3, d.getArea());
             ps.setFloat(4, d.getCantidad());
-            ps.setBigDecimal(5, d.getCinterno());
+            ps.setString(5, d.getCinterno());
             ps.setString(6, d.getArea());
             ps.executeUpdate();
             this.updateCantidad(d.getCinterno(), d.getArea(), d.getCantidad() * -1);
@@ -2372,6 +2436,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return pdf;
     }
 
+    @Override
     public File pdf_007(fdc_001 archivo) throws RemoteException {
         File pdf = null;
         String ruta = "C:\\Users\\OscarDarío\\Desktop\\Servicios_Solicitud_" + archivo.getNumSol().toString() + ".pdf";
@@ -2503,6 +2568,66 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return pdf;
 
+    }
+
+    @Override
+    public boolean verificarClave(String anterior, BigDecimal id, String tipo) throws RemoteException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String statement = "";
+        if (tipo.equalsIgnoreCase("da")) {
+            statement = "select psw from " + tipo + " where id_da = ?";
+        } else {
+            statement = "select psw from " + tipo + " where id = ?";
+        }
+        boolean valido = false;
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
+            ps.setBigDecimal(1, id);
+            rs = ps.executeQuery();
+            rs.next();
+            String string = rs.getString(1);
+            if (string.equalsIgnoreCase(this.encriptar(anterior))) {
+                valido = true;
+            }
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return valido;
+    }
+
+    @Override
+    public boolean cambiarClave(String nueva, BigDecimal id, String tipo) throws RemoteException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        String statement = "";
+        nueva = this.encriptar(nueva);
+        boolean hecho = false;
+        if (tipo.equalsIgnoreCase("da")) {
+            statement = "UPDATE da SET PSW= ? WHERE ID_da= ?";
+        } else if (tipo.equalsIgnoreCase("ra")) {
+            statement = "UPDATE ra SET PSW= ? WHERE ID= ?";
+        } else if (tipo.equalsIgnoreCase("ao")) {
+            statement = "UPDATE ao SET PSW= ? WHERE ID= ?";
+        }
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
+            ps.setString(1, nueva);
+            ps.setBigDecimal(2, id);
+            ps.executeUpdate();
+            hecho = true;
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
+    private String encriptar(String psw) {
+        String md5Hex = DigestUtils.md5Hex(psw);
+        return md5Hex;
     }
 
 }

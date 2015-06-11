@@ -43,9 +43,7 @@ public class RMIServer {
             System.out.println("Started");
             JOptionPane.showMessageDialog(null, "Servidor Iniciado");
         }
-        catch (AlreadyBoundException ex) {
-            Logger.getLogger(RMIServer.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (AccessException ex) {
+        catch (AlreadyBoundException | AccessException ex) {
             Logger.getLogger(RMIServer.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
