@@ -38,6 +38,8 @@ public class RMIServer {
     */
     public static void main(String [] args)throws RemoteException{
         try {
+            
+            
             Registry reg = LocateRegistry.createRegistry(222);
             reg.bind("Test", new Usuario());
             System.out.println("Started");
