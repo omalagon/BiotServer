@@ -30,6 +30,8 @@ import com.itextpdf.text.Image;
 import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Paragraph;
 import com.itextpdf.text.pdf.PdfPTable;
+import com.sun.org.apache.xml.internal.serializer.utils.Utils;
+import java.awt.Desktop;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -43,12 +45,21 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.poi.hssf.usermodel.HSSFFont;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 
 /**
  *
@@ -1126,6 +1137,209 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return creado;
     }
 
+    @Override
+    public File imprimirProveedores(String ruta) {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd__HH_mm_ss");
+        java.util.Date date = new java.util.Date();
+
+        File xls = new File(ruta + "\\ListaProveedores" + dateFormat.format(date) + ".xls");
+        if (!xls.exists()) {
+            try {
+                xls.createNewFile();
+            } catch (IOException ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        Workbook libro = new HSSFWorkbook();
+        FileOutputStream archivo;
+        Sheet hoja;
+        ArrayList<proveedor> todos;
+        try {
+            xls.createNewFile();
+            archivo = new FileOutputStream(xls);
+            hoja = libro.createSheet("Lista_Proveedores");
+            todos = this.todosProveedores();
+            int i = 0;
+            for (proveedor t : todos) {
+                Row fila = hoja.createRow(i);
+                Cell aux;
+                for (int j = 0; j < 7; j++) {
+                    if (i == 0) {
+                        aux = fila.createCell(j);
+                        aux.setCellValue("NIT");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Nombre");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Dirección");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Teléfono");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Fax");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Celular");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Correo");
+                        j++;
+                    } else {
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getNIT());
+                        hoja.autoSizeColumn(j);
+
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getNombre());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getDireccion());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getTelefono());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getTelefax());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getCelular());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getCorreo());
+                        hoja.autoSizeColumn(j);
+                        j++;
+
+                    }
+
+                }
+                i++;
+            }
+
+            libro.write(archivo);
+            archivo.close();
+
+        } catch (IOException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return xls;
+    }
+
+    @Override
+    public File imprimirInventario(String ruta) throws RemoteException {
+        DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd__HH_mm_ss");
+        java.util.Date date = new java.util.Date();
+
+        File xls = new File(ruta + "\\Inventario" + dateFormat.format(date) + ".xls");
+        if (!xls.exists()) {
+            try {
+                xls.createNewFile();
+            } catch (IOException ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        Workbook libro = new HSSFWorkbook();
+        FileOutputStream archivo;
+        Sheet hoja;
+        ArrayList<ItemInventario> todos;
+        try {
+            xls.createNewFile();
+            archivo = new FileOutputStream(xls);
+            hoja = libro.createSheet("Inventario");
+            todos = this.itemInventarioAdmin();
+            int i = 0;
+            for (ItemInventario t : todos) {
+                Row fila = hoja.createRow(i);
+                Cell aux;
+                for (int j = 0; j < 8; j++) {
+                    if (i == 0) {
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Código");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Descripción");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Presentación");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Cantidad");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Precio");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Cert. Calidad");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Cump. Especificaciones");
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue("Sucursal");
+                        j++;
+                    } else {
+
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getNumero());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getDescripcion());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getPresentacion());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getCantidad());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getPrecio());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getcCalidad());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getCEsp());
+                        hoja.autoSizeColumn(j);
+                        j++;
+                        aux = fila.createCell(j);
+                        aux.setCellValue(t.getSucursal());
+                        hoja.autoSizeColumn(j);
+                        j++;
+
+                        System.out.println(t.getNumero());
+                        System.out.println(t.getDescripcion());
+                        System.out.println(t.getPresentacion());
+
+                    }
+
+                }
+                i++;
+            }
+
+            libro.write(archivo);
+            archivo.close();
+
+        } catch (IOException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return xls;
+    }
+
     //Metodos del usuario
     @Override
     public boolean validarTipoUsuario(String identificacion, String contrasena, String tipo) throws RemoteException {
@@ -1291,14 +1505,20 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public String getUsuario(BigDecimal id) throws RemoteException {
+    public String getUsuario(BigDecimal id, String rol) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement;
+        String statement = null;
         String nombre = new String();
         try {
-            statement = "Select nombre from ra where id = ?";
+            if (rol.equalsIgnoreCase("ra")) {
+                statement = "Select nombre from ra where id = ?";
+            } else if (rol.equalsIgnoreCase("da")) {
+                statement = "Select nombre from da where id_da = ?";
+            } else if (rol.equalsIgnoreCase("ao")) {
+                statement = "Select nombre from ao where id = ?";
+            }
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, id);
@@ -1331,16 +1551,21 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public void crearSolicitud(solicitudPr sol) throws RemoteException {
+    public void crearSolicitud(solicitudPr sol, String rol) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement;
+        String statement = null;
         Date d = new Date(sol.getFecha().getTimeInMillis());
         try {
             con = Conexion.conexion.getConnection();
-            statement = "INSERT INTO SOLICITUDPR"
-                    + "(FECHA,OBSERVACIONES,RA_ID) VALUES (?, ?,?)";
+            if (rol.equalsIgnoreCase("ra")) {
+                statement = "INSERT INTO SOLICITUDPR"
+                        + "(FECHA,OBSERVACIONES,RA_ID) VALUES (?, ?,?)";
+            } else if (rol.equalsIgnoreCase("da")) {
+                statement = "INSERT INTO SOLICITUDPR"
+                        + "(FECHA,OBSERVACIONES,DA_ID) VALUES (?, ?,?)";
+            }
             ps = con.prepareStatement(statement);
             ps.setDate(1, d);
             ps.setString(2, sol.getObservaciones());
@@ -1362,21 +1587,27 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                     con.close();
                 }
             } catch (SQLException ex) {
+                System.out.println(ex);
                 System.out.println("Error cerrando conexion");
             }
         }
     }
 
     @Override
-    public BigDecimal solicitudValida(BigDecimal id) throws RemoteException {
+    public BigDecimal solicitudValida(BigDecimal id, String rol) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement;
+        String statement = null;
         BigDecimal valida = null;
         try {
             con = Conexion.conexion.getConnection();
-            statement = "select NUM_SOL from SOLICITUDPR where ra_id = ? order by NUM_SOL desc";
+            if (rol.equalsIgnoreCase("ra")) {
+                statement = "select NUM_SOL from SOLICITUDPR where ra_id = ? order by NUM_SOL desc";
+            } else if (rol.equalsIgnoreCase("da")) {
+                statement = "select NUM_SOL from SOLICITUDPR where da_id = ? order by NUM_SOL desc";
+            }
+
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, id);
             rs = ps.executeQuery();
@@ -1503,9 +1734,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         GregorianCalendar fecha = new GregorianCalendar();
         try {
             con = Conexion.conexion.getConnection();
-            statement = "select SOLICITUDPR.FECHA, SOLICITUDPR.OBSERVACIONES, SOLICITUDPR.NUM_SOL, ra.NOMBRE, ra.LAB"
-                    + " from SOLICITUDPR, ra "
-                    + "where SOLICITUDPR.RA_ID = ra.ID and SOLICITUDPR.REVISADO = 'NO' order by SOLICITUDPR.NUM_SOL";
+            statement = "(select SOLICITUDPR.FECHA, SOLICITUDPR.OBSERVACIONES, SOLICITUDPR.NUM_SOL, ra.NOMBRE, ra.LAB from SOLICITUDPR, ra  where SOLICITUDPR.RA_ID = ra.ID and SOLICITUDPR.REVISADO = 'NO' order by SOLICITUDPR.NUM_SOL)\n"
+                    + "union\n"
+                    + "(select SOLICITUDPR.FECHA, SOLICITUDPR.OBSERVACIONES, SOLICITUDPR.NUM_SOL, da.nombre, \"DA\" from SOLICITUDPR, da  where SOLICITUDPR.DA_ID = da.ID_DA and SOLICITUDPR.REVISADO = 'NO' order by SOLICITUDPR.NUM_SOL)";
             ps = con.prepareStatement(statement);
             rs = ps.executeQuery();
             while (rs.next()) {
@@ -1625,16 +1856,19 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         GregorianCalendar fecha = new GregorianCalendar();
         try {
             con = Conexion.conexion.getConnection();
-            statement = "select fecha, OBSERVACIONES, nombre, lab, id "
-                    + "from SOLICITUDPR, ra where ra.ID = SOLICITUDPR.RA_ID and num_sol = ?";
+            statement = "(select fecha, OBSERVACIONES, nombre, lab, id from SOLICITUDPR, ra where ra.ID = SOLICITUDPR.RA_ID and num_sol = ?)\n"
+                    + "union\n"
+                    + "(select fecha, OBSERVACIONES, nombre, \"DA\", ID_DA from SOLICITUDPR, da where da.ID_DA = SOLICITUDPR.DA_ID and num_sol = ?)";
             ps = con.prepareStatement(statement);
             ps.setBigDecimal(1, numSol);
+            ps.setBigDecimal(2, numSol);
             rs = ps.executeQuery();
             rs.next();
             fecha.setTime(rs.getDate(1));
             solicitud = new solicitudPr(fecha, rs.getString(2), numSol, rs.getBigDecimal(5), rs.getString(3), rs.getString(4));
         } catch (SQLException ex) {
             System.out.println("Error funcion \"get solicitud numSol\"");
+            System.out.println(ex);
         } finally {
 
             try {
@@ -1832,7 +2066,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setString(2, NIT);
             rs = ps.executeQuery();
             while (rs.next()) {
-                p = new proveedor(rs.getString(2), rs.getString(1), rs.getString(3), rs.getString(4), rs.getString(5));
+                p = new proveedor(rs.getString(2), rs.getString(1), rs.getString(3), rs.getString(4), rs.getString(5), "", "");
             }
         } catch (SQLException ex) {
             System.out.println("Error en la funcion getDatosProveedor");
@@ -1898,9 +2132,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return pedido;
     }
+
     @Override
-    public void actualizarCotEnOrden(ArrayList<itemsOrdenCompra> pedido) throws RemoteException
-    {
+    public void actualizarCotEnOrden(ArrayList<itemsOrdenCompra> pedido) throws RemoteException {
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1932,7 +2166,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
 
-        
     }
 
     @Override
@@ -2236,7 +2469,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        String statement = "select nit, nombre from proveedor";
+        String statement = "select p.NIT, p.NOMBRE, d.DIR, d.TELEFONO, d.TELEFAX, d.CORREO, d.CELULAR "
+                + "from datos d, proveedor p"
+                + " where d.PROVEEDOR_NIT = p.NIT";
         ArrayList<proveedor> proveedores = new ArrayList<>();
         proveedor prov = null;
         try {
@@ -2244,7 +2479,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps = con.prepareStatement(statement);
             rs = ps.executeQuery();
             while (rs.next()) {
-                prov = new proveedor(rs.getString(2), rs.getString(1));
+                prov = new proveedor(rs.getString(2), rs.getString(1), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(7), rs.getString(6));
                 proveedores.add(prov);
             }
         } catch (SQLException ex) {
