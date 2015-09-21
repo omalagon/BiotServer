@@ -9,7 +9,6 @@ package exampleserver;
 import Logica.Usuario;
 import java.rmi.AccessException;
 import java.rmi.AlreadyBoundException;
-import java.rmi.RMISecurityManager;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
