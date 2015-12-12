@@ -5,6 +5,10 @@
  */
 package Logica;
 
+import Controllers.ProveedorJpaController;
+import Controllers.UsuarioJpaController;
+import Controllers.exceptions.NonexistentEntityException;
+import Entities.Proveedor;
 import EstructurasAux.BuscarUsuario;
 import EstructurasAux.solicitudPr;
 import EstructurasAux.ItemInventario;
@@ -45,12 +49,15 @@ import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
+import javax.persistence.*;
 
 /**
  *
  * @author Oscar Dario Malagon Murcia
  */
 public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, Serializable {
+
+    private EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
 
     public Usuario() throws RemoteException {
         super();
@@ -67,50 +74,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean validarUsuario(String identificacion, String contrasena) throws RemoteException {
-        Connection conex = null;
-        boolean validacion = false;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        contrasena = this.encriptar(contrasena);
-        System.out.println(contrasena);
-
-        try {
-            conex = Conexion.conexion.getConnection();
-
-            if (identificacion.isEmpty() == false || contrasena.isEmpty() == false) {
-                String statement;
-                statement = "select nombre from usuario where id = ? and psw= ?";
-                ps = conex.prepareStatement(statement);
-                ps.setString(1, identificacion);
-                ps.setString(2, contrasena);
-                rs = ps.executeQuery();
-                rs.next();
-                if (rs.getRow() != 0) {
-                    validacion = true;
-                }
-            }
-        } catch (SQLException ex) {
-            validacion = false;
-            System.out.println(ex);
-            System.out.println("Error función \"Validar Usuario\" ");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (conex != null) {
-                    conex.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
+        boolean valido = false;
+        UsuarioJpaController controller = new UsuarioJpaController(emf);
+        Entities.Usuario findUsuario = controller.findUsuario(identificacion);
+        if (findUsuario.getPsw().equalsIgnoreCase(this.encriptar(contrasena))) {
+            valido = true;
         }
 
-        return validacion;
+        return valido;
     }
 
     /**
@@ -124,37 +95,19 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean cambiarClave(String nueva, String id) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        String statement = "UPDATE usuario SET PSW= ? WHERE ID= ?";
         boolean hecho = false;
         try {
-            if (id.length() != 0) {
-                nueva = this.encriptar(nueva);
-                con = Conexion.conexion.getConnection();
-                ps = con.prepareStatement(statement);
-                ps.setString(1, nueva);
-                ps.setString(2, id);
-                ps.executeUpdate();
-                hecho = true;
-            } else {
-                System.out.println("false");
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error función \"Cambiar Clave\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
 
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
-            }
+            UsuarioJpaController contr = new UsuarioJpaController(emf);
+            Entities.Usuario findUsuario = contr.findUsuario(id);
+            findUsuario.setPsw(this.encriptar(nueva));
+            contr.edit(findUsuario);
+            hecho = true;
+
+        } catch (NonexistentEntityException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
         return hecho;
     }
@@ -284,43 +237,15 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     @Override
     public boolean crearUsuario(String identificacion, String nombre,
             String correo, String psw, String area, String id) throws RemoteException {
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        Connection con = null;
         boolean creado = false;
-        psw = this.encriptar(psw);
+        UsuarioJpaController contr = new UsuarioJpaController(emf);
+        Entities.Usuario nuevo = new Entities.Usuario(identificacion, this.encriptar(psw), nombre, correo, area, contr.findUsuario(id));
         try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement("INSERT INTO usuario (id,nombre,correo,psw,lab,id1)VALUE(?,?,?,?,?,?);");
-            ps.setString(1, identificacion);
-            ps.setString(2, nombre);
-            ps.setString(3, correo);
-            ps.setString(4, psw);
-            ps.setString(5, area);
-            ps.setString(6, id);
-            ps.executeUpdate();
+            contr.create(nuevo);
             creado = true;
-        } catch (SQLException ex) {
-            creado = false;
-            System.out.println("Error en la función \"Crear Usuario\"");
+        } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
-            }
         }
-
         return creado;
     }
 
@@ -341,42 +266,15 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean CrearProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String correo, String celular, String contacto) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "INSERT INTO proveedor(nit, nombre, dir, tel,fax, ciudad, correo, celular, contacto)VALUES(?,?,?,?,?,?,?,?,?);";
-        boolean valido = false;
+        
+        boolean valido =false;
+        ProveedorJpaController prov = new ProveedorJpaController(emf);
+        Proveedor nuevo = new Proveedor(NIT, Nombre, direccion, correo, telefax, celular, ciudad, contacto);
         try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, NIT);
-            ps.setString(2, Nombre);
-            ps.setString(3, direccion);
-            ps.setString(4, telefono);
-            ps.setString(5, telefax);
-            ps.setString(6, ciudad);
-            ps.setString(7, correo);
-            ps.setString(8, celular);
-            ps.setString(9, contacto);
-            ps.executeUpdate();
-            valido = true;
-        } catch (SQLException ex) {
-            System.out.println("Error función \"Crear Proveedor\"");
+            prov.create(nuevo);
+            valido=true;
+        } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
         }
         return valido;
     }
@@ -391,35 +289,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public proveedor getDatosProveedor(String NIT) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select nit, nombre, dir, tel,fax, ciudad, correo, celular, contacto from proveedor where nit = ?";
-        proveedor p = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, NIT);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                p = new proveedor(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9));
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error en la funcion getDatosProveedor");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
+        ProveedorJpaController prov = new ProveedorJpaController(emf);
+        Proveedor find = prov.findProveedor(NIT);
+        proveedor p = new proveedor(find.getNit(), find.getNombre(), find.getDir(), find.getTel(), find.getFax(), find.getCiudad(), find.getCelular(), find.getCorreo(), find.getContacto());
         return p;
     }
 
@@ -2738,11 +2610,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return aux;
 
     }
+
     /*
      Retorna un objeto tipo fdc_001 que contiene: fecha, area o proceso solicitante, nombre del solicitante,
      observaciones y el auxiliar de oficina
      */
-
     @Override
     public ArrayList<informeDescargos> generarInformePorLab(String mes) throws RemoteException {
         Connection con = null;

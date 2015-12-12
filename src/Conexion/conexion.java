@@ -26,7 +26,8 @@ public class conexion  {
             Logger.getLogger(conexion.class.getName()).log(Level.SEVERE, null, ex);
         }
            //Connection con=DriverManager.getConnection("jdbc:mysql://localhost/","web219-system","oscar");///
-           Connection con=DriverManager.getConnection("jdbc:mysql://localhost/biotrends_new","root","oscar");///
+           Connection con=DriverManager.getConnection("jdbc:mysql://localhost:9999/biotrends?zeroDateTimeBehavior=convertToNull","root","oscar");///
+           
            if (con!=null) 
                System.out.println("Ok");
        return con;

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="2.1" xmlns="http://xmlns.jcp.org/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
+  <persistence-unit name="Biot_ServerPU" transaction-type="RESOURCE_LOCAL">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <class>Entities.Usuario</class>
+    <class>Entities.Permisos</class>
+    <class>Entities.CotizacionProd</class>
+    <class>Entities.Recepcion</class>
+    <class>Entities.SolicitudPr</class>
+    <class>Entities.Ordencompra</class>
+    <class>Entities.Aprobados</class>
+    <class>Entities.Itmxorden</class>
+    <class>Entities.Ixp</class>
+    <class>Entities.Itxsol</class>
+    <class>Entities.Proveedor</class>
+    <class>Entities.Descargo</class>
+    <class>Entities.Item</class>
+    <properties>
+      <property name="javax.persistence.jdbc.url" value="jdbc:mysql://localhost:9999/biotrends?zeroDateTimeBehavior=convertToNull"/>
+      <property name="javax.persistence.jdbc.user" value="root"/>
+      <property name="javax.persistence.jdbc.driver" value="com.mysql.jdbc.Driver"/>
+      <property name="javax.persistence.jdbc.password" value="oscar"/>
+    </properties>
+  </persistence-unit>
+</persistence>
