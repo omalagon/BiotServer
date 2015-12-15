@@ -398,6 +398,7 @@ public class ItemJpaController implements Serializable {
             String msg = ex.getLocalizedMessage();
             if (msg == null || msg.length() == 0) {
                 String id = item.getCinterno();
+                System.out.println(id);
                 if (findItem(id) == null) {
                     throw new NonexistentEntityException("The item with id " + id + " no longer exists.");
                 }

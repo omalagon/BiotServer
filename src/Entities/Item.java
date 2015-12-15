@@ -5,6 +5,7 @@
  */
 package Entities;
 
+import EstructurasAux.ItemInventario;
 import java.io.Serializable;
 import java.util.List;
 import javax.persistence.Basic;
@@ -29,6 +30,8 @@ import javax.xml.bind.annotation.XmlTransient;
 @NamedQueries({
     @NamedQuery(name = "Item.findAll", query = "SELECT i FROM Item i"),
     @NamedQuery(name = "Item.findByCinterno", query = "SELECT i FROM Item i WHERE i.cinterno = :cinterno"),
+    @NamedQuery(name = "Item.busqueda", query = "SELECT i FROM Item i WHERE i.descripcion LIKE :descripcion AND i.presentacion like :presentacion AND i.inventario like :inv"),
+    @NamedQuery(name = "Item.InventarioAdmin", query = "SELECT i FROM Item i ORDER BY i.cinterno"),
     @NamedQuery(name = "Item.findByInventario", query = "SELECT i FROM Item i WHERE i.inventario = :inventario"),
     @NamedQuery(name = "Item.findByDescripcion", query = "SELECT i FROM Item i WHERE i.descripcion = :descripcion"),
     @NamedQuery(name = "Item.findByPresentacion", query = "SELECT i FROM Item i WHERE i.presentacion = :presentacion"),
@@ -75,6 +78,19 @@ public class Item implements Serializable {
 
     public Item() {
     }
+
+    public Item(String cinterno, String inventario, String descripcion, String presentacion, Double cantidad, Double precio, String ccalidad, String cesp) {
+        this.cinterno = cinterno;
+        this.inventario = inventario;
+        this.descripcion = descripcion;
+        this.presentacion = presentacion;
+        this.cantidad = cantidad;
+        this.precio = precio;
+        this.ccalidad = ccalidad;
+        this.cesp = cesp;
+    }
+    
+    
 
     public Item(String cinterno) {
         this.cinterno = cinterno;
@@ -230,6 +246,17 @@ public class Item implements Serializable {
     @Override
     public String toString() {
         return "Entities.Item[ cinterno=" + cinterno + " ]";
+    }
+    
+    public ItemInventario EntityToItem(Item i)
+    {
+        if(i.getPrecio()==null)
+        {
+            i.setPrecio(0.0);
+        }
+        ItemInventario itm = new ItemInventario(i.getCinterno(), i.getDescripcion(), i.getPresentacion(), new Float(i.getCantidad().toString()),
+                new Float(i.getPrecio().toString()), i.getCcalidad(), i.getInventario(), "", i.getCesp());
+        return itm;
     }
     
 }

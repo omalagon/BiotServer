@@ -5,7 +5,9 @@
  */
 package Entities;
 
+import EstructurasAux.users;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.List;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
@@ -89,6 +91,14 @@ public class Usuario implements Serializable {
         this.correo = correo;
         this.lab = lab;
         this.id1 = id1;
+    }
+    
+    public Usuario(String id, String psw, String nombre, String correo, String lab) {
+        this.id = id;
+        this.psw = psw;
+        this.nombre = nombre;
+        this.correo = correo;
+        this.lab = lab;
     }
     
     
@@ -219,4 +229,9 @@ public class Usuario implements Serializable {
         return "Entities.Usuario[ id=" + id + " ]";
     }
     
+    public users UsuarioToUsers(Usuario u)
+    {
+        users uu = new users(new BigDecimal(u.getId()), u.getNombre(), u.getCorreo(), u.getLab());
+        return uu;
+    }
 }

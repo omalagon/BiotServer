@@ -5,10 +5,19 @@
  */
 package Logica;
 
+import Controllers.ItemJpaController;
+import Controllers.PermisosJpaController;
 import Controllers.ProveedorJpaController;
+import Controllers.SolicitudPrJpaController;
 import Controllers.UsuarioJpaController;
+import Controllers.exceptions.IllegalOrphanException;
 import Controllers.exceptions.NonexistentEntityException;
+import Controllers.exceptions.PreexistingEntityException;
+import Entities.Item;
+import Entities.Itxsol;
+import Entities.Permisos;
 import Entities.Proveedor;
+import Entities.SolicitudPr;
 import EstructurasAux.BuscarUsuario;
 import EstructurasAux.solicitudPr;
 import EstructurasAux.ItemInventario;
@@ -25,6 +34,7 @@ import EstructurasAux.permisos;
 import EstructurasAux.proveedor;
 import EstructurasAux.recepcionProd;
 import EstructurasAux.users;
+import com.itextpdf.text.xml.simpleparser.EntitiesToSymbol;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -41,6 +51,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.GregorianCalendar;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -58,11 +69,338 @@ import javax.persistence.*;
 public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, Serializable {
 
     private EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+    private Object Entities;
 
     public Usuario() throws RemoteException {
         super();
     }
 
+    //Gestión Items
+    /**
+     *
+     * @param item
+     * @return boolean
+     * @throws RemoteException
+     *
+     * Crea un ítem
+     */
+    @Override
+    public boolean crearItem(ItemInventario item) throws RemoteException {
+        boolean hecho = false;
+        ItemJpaController itm = new ItemJpaController(emf);
+        Item i = new Item(item.getNumero(), item.getInventario(), item.getDescripcion(), item.getPresentacion(), new Double(Float.toString(item.getCantidad())),
+                new Double(Float.toString(item.getPrecio())), item.getcCalidad(), item.getCEsp());
+        try {
+            itm.create(i);
+            hecho = true;
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
+    /**
+     *
+     * @param item
+     * @return
+     * @throws RemoteException
+     *
+     * Edita la información de un ítem ya existente.
+     */
+    @Override
+    public boolean editarItem(ItemInventario item) throws RemoteException {
+        boolean hecho = false;
+        ItemJpaController itm = new ItemJpaController(emf);
+        Item i = itm.findItem(item.getNumero());
+        i.setCinterno(item.getNumero().trim());
+        i.setInventario(item.getInventario());
+        i.setDescripcion(item.getDescripcion());
+        i.setPresentacion(item.getPresentacion());
+        i.setCantidad(new Double(Float.toString(item.getCantidad())));
+        i.setPrecio(new Double(Float.toString(item.getPrecio())));
+        i.setCcalidad(item.getcCalidad());
+        i.setCesp(item.getCEsp());
+        try {
+            itm.edit(i);
+            hecho = true;
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
+    /**
+     *
+     * @param cinterno
+     * @return
+     * @throws RemoteException
+     *
+     * Buscar la información de un ítem de acuerdo al código interno ingresado
+     */
+    @Override
+    public ItemInventario buscarInfoItem(String cinterno) throws RemoteException {
+        ItemJpaController itm = new ItemJpaController(emf);
+        Item findItem = itm.findItem(cinterno);
+        if (findItem == null) {
+            return new ItemInventario();
+        } else {
+            return findItem.EntityToItem(findItem);
+        }
+    }
+
+    /**
+     *
+     * @param item
+     * @return boolean
+     * @throws RemoteException
+     *
+     * Con el cinterno del objeto obtenido por parámetro se elimina de la base
+     * de datos
+     */
+    @Override
+    public boolean eliminarItem(ItemInventario item) throws RemoteException {
+        boolean hecho = false;
+        ItemJpaController itm = new ItemJpaController(emf);
+        try {
+            itm.destroy(item.getNumero());
+            hecho = true;
+        } catch (IllegalOrphanException | NonexistentEntityException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
+    /**
+     *
+     * @return ArrayList
+     * @throws RemoteException
+     *
+     * Devuelve un listado con los últimos ítems que han sido ingresados.
+     */
+    @Override
+    public ArrayList<ItemInventario> ultimos() throws RemoteException {
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String numero;
+        String lab;
+        String descripcion;
+        String presentacion;
+        float cantidad;
+        float precio;
+        String cCalidad;
+        String cEsp;
+        String sucursal;
+        ItemInventario in;
+        ArrayList<ItemInventario> lista = new ArrayList<>();
+        try {
+            con = Conexion.conexion.getConnection();
+            String statement = "(select * from item where cinterno like '%MMC%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%MT%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%AS%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%B%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%ER%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%I%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%MT%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%MV%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%N%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%PL%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%T%' order by CINTERNO desc limit 1)\n"
+                    + "union\n"
+                    + "(select * from item where cinterno like '%V%' order by CINTERNO desc limit 1)";
+            ps = con.prepareStatement(statement);
+            rs = ps.executeQuery();
+            while (rs.next()) {
+                numero = rs.getString("CINTERNO");
+                lab = rs.getString("INVENTARIO");
+                descripcion = rs.getString("DESCRIPCION");
+                presentacion = rs.getString("PRESENTACION");
+                cantidad = rs.getFloat("CANTIDAD");
+                precio = rs.getFloat("PRECIO");
+                cCalidad = rs.getString("CCALIDAD");
+                cEsp = rs.getString("CESP");
+                in = new ItemInventario(numero, lab, descripcion, presentacion, cantidad, precio, cCalidad, cEsp, "", new Float(0));
+                lista.add(in);
+            }
+        } catch (SQLException ex) {
+            System.out.println("Error en la función \"CVer últimos\"");
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando la conexión");
+            }
+        }
+
+        return lista;
+
+    }
+
+    /**
+     *
+     * @return ArrayList
+     * @throws RemoteException
+     *
+     * Genera una lista con todo el inventario existente en la base de datos
+     */
+    @Override
+    public ArrayList<ItemInventario> itemInventarioAdmin() throws RemoteException {
+        ArrayList<ItemInventario> lista = new ArrayList<>();
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Item.InventarioAdmin");
+        List<Item> resultList = q.getResultList();
+        System.out.println(resultList.size());
+        for (Item i : resultList) {
+            lista.add(i.EntityToItem(i));
+        }
+        return lista;
+    }
+
+    //Gestión Proveedores
+    /**
+     *
+     * @param NIT
+     * @param Nombre
+     * @param direccion
+     * @param telefono
+     * @param telefax
+     * @param ciudad
+     * @param correo
+     * @param celular
+     * @return boolean
+     * @throws RemoteException
+     *
+     * Crea un proveedor en la base de datos.
+     */
+    @Override
+    public boolean CrearProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String correo, String celular, String contacto) throws RemoteException {
+
+        boolean valido = false;
+        ProveedorJpaController prov = new ProveedorJpaController(emf);
+        Proveedor nuevo = new Proveedor(NIT, Nombre, direccion, correo, telefax, celular, ciudad, contacto);
+        try {
+            prov.create(nuevo);
+            valido = true;
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return valido;
+    }
+
+    /**
+     *
+     * @param NIT
+     * @param Nombre
+     * @param direccion
+     * @param telefono
+     * @param telefax
+     * @param ciudad
+     * @param correo
+     * @param celular
+     * @return boolean
+     * @throws RemoteException
+     *
+     * Edita la información de un proveedor.
+     */
+    @Override
+    public boolean EditarProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String correo, String celular, String contacto) throws RemoteException {
+        boolean hecho = false;
+        ProveedorJpaController prov = new ProveedorJpaController(emf);
+        Proveedor find = prov.findProveedor(NIT);
+        find.setNombre(Nombre);
+        find.setDir(direccion);
+        find.setTel(telefono);
+        find.setFax(telefax);
+        find.setCiudad(ciudad);
+        find.setCorreo(correo);
+        find.setCelular(celular);
+        find.setContacto(contacto);
+        try {
+            prov.edit(find);
+            hecho = true;
+        } catch (NonexistentEntityException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
+    /**
+     *
+     * @return ArrayList
+     * @throws RemoteException
+     *
+     * Genera una lista con todos los proveedores que se encuentran en el
+     * sistema
+     */
+    @Override
+    public ArrayList<proveedor> todosProveedores() throws RemoteException {
+        ArrayList<proveedor> proveedores = new ArrayList<>();
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Proveedor.findAllOrderByName");
+        List<Proveedor> resultList = q.getResultList();
+        for (Proveedor p : resultList) {
+            proveedores.add(new proveedor(p.getNit(), p.getNombre(), p.getDir(), p.getTel(), p.getFax(), p.getCiudad(), p.getCelular(), p.getCorreo(), p.getContacto()));
+        }
+        return proveedores;
+    }
+
+    /**
+     *
+     * @param NIT
+     * @return proveedor
+     * @throws RemoteException
+     *
+     * Busca los datos de un proveedor de acuerdo al nit recibido
+     */
+    @Override
+    public proveedor getDatosProveedor(String NIT) throws RemoteException {
+        ProveedorJpaController prov = new ProveedorJpaController(emf);
+        Proveedor find = prov.findProveedor(NIT);
+        proveedor p = new proveedor(find.getNit(), find.getNombre(), find.getDir(), find.getTel(), find.getFax(), find.getCiudad(), find.getCelular(), find.getCorreo(), find.getContacto());
+        return p;
+    }
+
+    /**
+     *
+     * @param NIT
+     * @return boolean
+     * @throws RemoteException
+     */
+    @Override
+    public boolean EliminarProveedor(String NIT) throws RemoteException {
+        boolean hecho = false;
+        ProveedorJpaController prov = new ProveedorJpaController(emf);
+        try {
+            prov.destroy(NIT);
+            hecho = true;
+        } catch (IllegalOrphanException | NonexistentEntityException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
+    //Gestión Usuarios
     /**
      *
      * @param identificacion
@@ -182,43 +520,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean verificarClave(String anterior, String id) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select psw from usuario where id = ?";
-        boolean valido = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, id);
-            rs = ps.executeQuery();
-            rs.next();
-            String string = rs.getString(1);
-            System.out.println(string);
-            System.out.println(this.encriptar(anterior));
-            if (string.equalsIgnoreCase(this.encriptar(anterior))) {
-                valido = true;
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"Verificar Clave\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
-            }
-        }
-        return valido;
+        UsuarioJpaController us = new UsuarioJpaController(emf);
+        Entities.Usuario findUsuario = us.findUsuario(id);
+        return findUsuario.getPsw().equalsIgnoreCase(this.encriptar(anterior));
     }
 
     /**
@@ -251,373 +555,209 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     /**
      *
-     * @param NIT
-     * @param Nombre
-     * @param direccion
-     * @param telefono
-     * @param telefax
-     * @param ciudad
-     * @param correo
-     * @param celular
+     * @param id
+     * @return String
+     * @throws RemoteException
+     *
+     * Busca el nombre de un usuario de acuerdo a su numero de identificacion
+     */
+    @Override
+    public String getUsuario(String id) throws RemoteException {
+        UsuarioJpaController us = new UsuarioJpaController(emf);
+        Entities.Usuario f = us.findUsuario(id);
+        return f.getNombre();
+    }
+
+    /**
+     *
+     * @return ArrayList
+     *
+     * Genera una lista con los usuarios actualmente registrados en el sistema.
+     */
+    @Override
+    public ArrayList<users> getUsuarios() {
+        UsuarioJpaController contr = new UsuarioJpaController(emf);
+        List<Entities.Usuario> lst = contr.findUsuarioEntities();
+        ArrayList<users> lista = new ArrayList<>();
+        for (Entities.Usuario usuario : lst) {
+            lista.add(usuario.UsuarioToUsers(usuario));
+        }
+        return lista;
+    }
+
+    /**
+     *
+     * @param id
      * @return boolean
      * @throws RemoteException
      *
-     * Crea un proveedor en la base de datos.
+     * Elimina a un usuario del sistema
      */
     @Override
-    public boolean CrearProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String correo, String celular, String contacto) throws RemoteException {
-        
-        boolean valido =false;
-        ProveedorJpaController prov = new ProveedorJpaController(emf);
-        Proveedor nuevo = new Proveedor(NIT, Nombre, direccion, correo, telefax, celular, ciudad, contacto);
+    public boolean EliminarUsuario(String id) throws RemoteException {
+        boolean hecho = false;
+        UsuarioJpaController us = new UsuarioJpaController(emf);
         try {
-            prov.create(nuevo);
-            valido=true;
+            PermisosJpaController p = new PermisosJpaController(emf);
+            Permisos findPermisos = p.findPermisos(id.trim());
+            if (findPermisos != null) {
+                p.destroy(id.trim());
+            }
+            us.destroy(id.trim());
+            hecho = true;
+        } catch (IllegalOrphanException | NonexistentEntityException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
+    /**
+     *
+     * @param id
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public users getDatosUsuario(String id) throws RemoteException {
+        UsuarioJpaController us = new UsuarioJpaController(emf);
+        Entities.Usuario findUsuario = us.findUsuario(id);
+        return findUsuario.UsuarioToUsers(findUsuario);
+    }
+
+    /**
+     *
+     * @param u
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public boolean EditarUsuario(users u) throws RemoteException {
+        boolean hecho = false;
+        UsuarioJpaController us = new UsuarioJpaController(emf);
+        Entities.Usuario findUsuario = us.findUsuario(u.getId().toString());
+        findUsuario.setNombre(u.getNombre());
+        findUsuario.setCorreo(u.getCorreo());
+        findUsuario.setLab(u.getLab());
+        try {
+            us.edit(findUsuario);
+            hecho = true;
+        } catch (NonexistentEntityException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return valido;
+        return hecho;
     }
 
     /**
      *
-     * @param NIT
-     * @return proveedor
-     * @throws RemoteException
-     *
-     * Busca los datos de un proveedor de acuerdo al nit recibido
-     */
-    @Override
-    public proveedor getDatosProveedor(String NIT) throws RemoteException {
-        ProveedorJpaController prov = new ProveedorJpaController(emf);
-        Proveedor find = prov.findProveedor(NIT);
-        proveedor p = new proveedor(find.getNit(), find.getNombre(), find.getDir(), find.getTel(), find.getFax(), find.getCiudad(), find.getCelular(), find.getCorreo(), find.getContacto());
-        return p;
-    }
-
-    /**
-     *
-     * @param NIT
-     * @param Nombre
-     * @param direccion
-     * @param telefono
-     * @param telefax
-     * @param ciudad
-     * @param correo
-     * @param celular
-     * @return boolean
-     * @throws RemoteException
-     *
-     * Edita la información de un proveedor.
-     */
-    @Override
-    public boolean EditarProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String correo, String celular, String contacto) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "update proveedor set  nombre=?, dir=?, tel=?,fax=?, ciudad=?, correo=?, celular=? , contacto =? where nit=?";
-        boolean valido = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, Nombre);
-            ps.setString(2, direccion);
-            ps.setString(3, telefono);
-            ps.setString(4, telefax);
-            ps.setString(5, ciudad);
-            ps.setString(6, correo);
-            ps.setString(7, celular);
-            ps.setString(8, contacto);
-            ps.setString(9, NIT);
-            ps.executeUpdate();
-            valido = true;
-        } catch (SQLException ex) {
-            System.out.println("Error función \"editar Proveedor\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return valido;
-    }
-
-    /**
-     *
-     * @return ArrayList
-     * @throws RemoteException
-     *
-     * Genera una lista con todos los proveedores que se encuentran en el
-     * sistema
-     */
-    @Override
-    public ArrayList<proveedor> todosProveedores() throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select nit, nombre, dir, tel,fax, ciudad, correo, celular, contacto from proveedor order by nombre";
-        ArrayList<proveedor> proveedores = new ArrayList<>();
-        proveedor prov = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                prov = new proveedor(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8), rs.getString(9));
-                proveedores.add(prov);
-            }
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return proveedores;
-    }
-
-    /**
-     *
-     * @param item
-     * @return boolean
-     * @throws RemoteException
-     *
-     * Crea un ítem
-     */
-    @Override
-    public boolean crearItem(ItemInventario item) throws RemoteException {
-        PreparedStatement ps = null;
-        Connection con = null;
-        String statement = "insert into item (inventario, descripcion, presentacion, cantidad, precio, ccalidad,  cesp, cinterno) values(?,?,?,?,?,?,?,?);";
-        boolean valido = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, item.getInventario());
-            ps.setString(2, item.getDescripcion());
-            ps.setString(3, item.getPresentacion());
-            ps.setFloat(4, item.getCantidad());
-            ps.setFloat(5, item.getPrecio());
-            ps.setString(6, item.getcCalidad());
-            ps.setString(7, item.getCEsp());
-            ps.setString(8, item.getNumero());
-            ps.executeUpdate();
-            valido = true;
-        } catch (SQLException ex) {
-            System.out.println("Error función \"Crear Ítem\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
-            }
-
-        }
-        return valido;
-    }
-
-    /**
-     *
-     * @param item
+     * @param p
      * @return
      * @throws RemoteException
      *
-     * Edita la información de un ítem ya existente.
+     * Asigna los permisos a un usuario
      */
     @Override
-    public boolean editarItem(ItemInventario item) throws RemoteException {
-        PreparedStatement ps = null;
-        Connection con = null;
-        String statement = "update item set inventario = ?, descripcion = ? , presentacion = ? , cantidad = ? , precio =?, ccalidad= ?, cesp =? where cinterno =?;";
-        boolean valido = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, item.getInventario());
-            ps.setString(2, item.getDescripcion());
-            ps.setString(3, item.getPresentacion());
-            ps.setFloat(4, item.getCantidad());
-            ps.setFloat(5, item.getPrecio());
-            ps.setString(6, item.getcCalidad());
-            ps.setString(7, item.getCEsp());
-            ps.setString(8, item.getNumero());
-            ps.executeUpdate();
-            valido = true;
-        } catch (SQLException ex) {
-            System.out.println("Error función \"Editar Ítem\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
+    public boolean AsignarPermisos(permisos p) throws RemoteException {
+        System.out.println("el id es: " + p.getId());
+        boolean hecho = false;
+        PermisosJpaController per = new PermisosJpaController(emf);
+        Permisos lista = per.findPermisos(p.getId());
+        Permisos pp = new Permisos(p.getId());
+        pp.setCrearItem((p.isCrearItem() == 1 ? '1' : '0'));
+        pp.setCrearProv((p.isCrearProveedor()) == 1 ? '1' : '0');
+        pp.setCrearUsuario((p.isCrearUsuario()) == 1 ? '1' : '0');
+        pp.setDescargarConsumos((p.isDescargarConsumos()) == 1 ? '1' : '0');
+        pp.setRecibirPedido((p.isRecibirPedidos()) == 1 ? '1' : '0');
+        pp.setRepDescargos((p.isGenRepDescargos()) == 1 ? '1' : '0');
+        pp.setRepInventario((p.isGenRepInventario()) == 1 ? '1' : '0');
+        pp.setRepUsuarios((p.isGenRepUsuarios()) == 1 ? '1' : '0');
+        pp.setRepProv((p.isGenRepProveedores()) == 1 ? '1' : '0');
+        pp.setRepixp((p.isGenRepItemxProveedor()) == 1 ? '1' : '0');
+        pp.setSolProd((p.isSolicitarProductos()) == 1 ? '1' : '0');
+        pp.setRealizarCot((p.isRealizarCotizaciones()) == 1 ? '1' : '0');
+        pp.setAprobarCot((p.isAprobarCotizaciones()) == 1 ? '1' : '0');
+        pp.setOcompra((p.isGenerarOrdenesCompra()) == 1 ? '1' : '0');
+        pp.setBloqUs((p.isBloquearUsuario()) == 1 ? '1' : '0');
+        pp.setGenfdc001((p.getGenfdc001()) == 1 ? '1' : '0');
+        if (lista == null) {
             try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
+                pp.setUsuario(new UsuarioJpaController(emf).findUsuario(p.getId()));
+                per.create(pp);
+                hecho = true;
+            } catch (PreexistingEntityException ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (Exception ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
             }
-
+        } else {
+            try {
+                pp.setUsuario(new UsuarioJpaController(emf).findUsuario(p.getId()));
+                per.edit(pp);
+                hecho = true;
+            } catch (NonexistentEntityException ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (Exception ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
-        return valido;
+        return hecho;
     }
 
     /**
      *
-     * @param cinterno
+     * @param id
      * @return
      * @throws RemoteException
      *
-     * Buscar la información de un ítem de acuerdo al código interno ingresado
+     * Devuelve la lista de permisos correspondientes al usuario con el id
+     * ingresado
      */
     @Override
-    public ItemInventario buscarInfoItem(String cinterno) throws RemoteException {
-        PreparedStatement ps = null;
-        Connection con = null;
-        ResultSet rs = null;
-        ItemInventario item = null;
-        String statement = "SELECT inventario, descripcion, presentacion, cantidad, precio, ccalidad, cesp FROM item where cinterno = ?;";
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, cinterno);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                item = new ItemInventario(null, rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), rs.getString(6), rs.getString(1), "", rs.getString(7));
-            }
-
-        } catch (SQLException ex) {
-            System.out.println("Error función \"Buscar Info Ítem\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
-            }
+    public permisos lista(String id) throws RemoteException {
+        PermisosJpaController per = new PermisosJpaController(emf);
+        Permisos aux = per.findPermisos(id);
+        permisos listaPermisos = new permisos();
+        if (aux != null) {
+            listaPermisos = new permisos(id, (aux.getCrearItem() == '1' ? 1 : 0),
+                    (aux.getCrearProv() == '1' ? 1 : 0), (aux.getCrearUsuario() == '1' ? 1 : 0),
+                    (aux.getDescargarConsumos() == '1' ? 1 : 0), (aux.getRecibirPedido() == '1' ? 1 : 0),
+                    (aux.getRepDescargos() == '1' ? 1 : 0), (aux.getRepInventario() == '1' ? 1 : 0),
+                    (aux.getRepUsuarios() == '1' ? 1 : 0), (aux.getRepProv() == '1' ? 1 : 0),
+                    (aux.getRepixp() == '1' ? 1 : 0), (aux.getSolProd() == '1' ? 1 : 0),
+                    (aux.getRealizarCot() == '1' ? 1 : 0), (aux.getAprobarCot() == '1' ? 1 : 0),
+                    (aux.getOcompra() == '1' ? 1 : 0), (aux.getBloqUs() == '1' ? 1 : 0), (aux.getGenfdc001() == '1' ? 1 : 0));
 
         }
-        return item;
+        return listaPermisos;
     }
 
+    //Descargos
     /**
      *
-     * @return ArrayList
+     * @param descripcion
+     * @param presentacion
+     * @param inv
+     * @return
      * @throws RemoteException
-     *
-     * Devuelve un listado con los últimos ítems que han sido ingresados.
      */
     @Override
-    public ArrayList<ItemInventario> ultimos() throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String numero;
-        String lab;
-        String descripcion;
-        String presentacion;
-        float cantidad;
-        float precio;
-        String cCalidad;
-        String cEsp;
-        String sucursal;
-        ItemInventario in;
-        ArrayList<ItemInventario> lista = new ArrayList<>();
-        try {
-            con = Conexion.conexion.getConnection();
-            String statement = "(select * from item where cinterno like '%MMC%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%MT%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%AS%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%B%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%ER%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%I%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%MT%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%MV%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%N%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%PL%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%T%' order by CINTERNO desc limit 1)\n"
-                    + "union\n"
-                    + "(select * from item where cinterno like '%V%' order by CINTERNO desc limit 1)";
-            ps = con.prepareStatement(statement);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                numero = rs.getString("CINTERNO");
-                lab = rs.getString("INVENTARIO");
-                descripcion = rs.getString("DESCRIPCION");
-                presentacion = rs.getString("PRESENTACION");
-                cantidad = rs.getFloat("CANTIDAD");
-                precio = rs.getFloat("PRECIO");
-                cCalidad = rs.getString("CCALIDAD");
-                cEsp = rs.getString("CESP");
-                in = new ItemInventario(numero, lab, descripcion, presentacion, cantidad, precio, cCalidad, cEsp, "", new Float(0));
-                lista.add(in);
+    public ArrayList<ItemInventario> busquedaItem(String descripcion, String presentacion, String inv) throws RemoteException {
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Item.busqueda");
+        q.setParameter("descripcion", "%"+descripcion+"%");
+        q.setParameter("presentacion", "%"+presentacion+"%");
+        q.setParameter("inv", "%"+inv+"%");
+        List<Item> resultList = q.getResultList();
+        if (resultList == null) {
+            return new ArrayList<>();
+        } else {
+            ArrayList<ItemInventario> lstRetorno = new ArrayList<>();
+            for (Item i : resultList) {
+                lstRetorno.add(i.EntityToItem(i));
             }
-        } catch (SQLException ex) {
-            System.out.println("Error en la función \"CVer últimos\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando la conexión");
-            }
+            return lstRetorno;
         }
-
-        return lista;
-
     }
 
     /**
@@ -672,97 +812,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
         return creado;
-    }
-
-    /**
-     *
-     * @return ArrayList
-     * @throws RemoteException
-     *
-     * Genera una lista con todo el inventario existente en la base de datos
-     */
-    @Override
-    public ArrayList<ItemInventario> itemInventarioAdmin() throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String numero;
-        String lab;
-        String descripcion;
-        String presentacion;
-        float cantidad;
-        float precio;
-        String cCalidad;
-        String cEsp;
-        ItemInventario in;
-        ArrayList<ItemInventario> lista = new ArrayList<>();
-        try {
-            con = Conexion.conexion.getConnection();
-            String statement = "select * from Item order by inventario asc, cinterno";
-            ps = con.prepareStatement(statement);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                numero = rs.getString("CINTERNO");
-                lab = rs.getString("INVENTARIO");
-                descripcion = rs.getString("DESCRIPCION");
-                presentacion = rs.getString("PRESENTACION");
-                cantidad = rs.getFloat("CANTIDAD");
-                precio = rs.getFloat("PRECIO");
-                cCalidad = rs.getString("CCALIDAD");
-                cEsp = rs.getString("CESP");
-                in = new ItemInventario(numero, lab, descripcion, presentacion, cantidad, precio, cCalidad, cEsp, "", new Float(0));
-                lista.add(in);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error en la función \"Inventario Item Admin\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando la conexión");
-            }
-        }
-
-        return lista;
-    }
-
-    /**
-     *
-     * @return ArrayList
-     *
-     * Genera una lista con los usuarios actualmente registrados en el sistema.
-     */
-    @Override
-    public ArrayList<users> getUsuarios() {
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        Connection con = null;
-        String statement;
-        ArrayList<users> user = new ArrayList<>();
-        users us = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select id, nombre, correo, lab from usuario \n";
-            ps = con.prepareStatement(statement);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                us = new users(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getString(4));
-                user.add(us);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error en la función \"Crear get Usuarios\"");
-        }
-        return user;
     }
 
     /**
@@ -882,87 +931,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public String area(String id) throws RemoteException {
-        String area = new String();
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            String statement = "Select lab from usuario where id = ?";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, id);
-            rs = ps.executeQuery();
-            rs.next();
-            area = rs.getString(1);
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-            System.out.println("Error funcion \"area\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-        return area;
-    }
-
-    /**
-     *
-     * @param id
-     * @return String
-     * @throws RemoteException
-     *
-     * Busca el nombre de un usuario de acuerdo a su numero de identificacion
-     */
-    @Override
-    public String getUsuario(String id) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select nombre from usuario where id = ?";
-        String nombre = new String();
-        try {
-
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, id);
-            rs = ps.executeQuery();
-
-            while (rs.next()) {
-                if (rs.getRow() != 0) {
-                    nombre = rs.getString(1);
-                }
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"get usuario\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return nombre;
+        UsuarioJpaController us = new UsuarioJpaController(emf);
+        Entities.Usuario f = us.findUsuario(id);
+        return f.getLab();
     }
 
     /**
@@ -1006,6 +977,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 System.out.println("Error cerrando conexion");
             }
         }
+
     }
 
     /**
@@ -2294,105 +2266,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
         return solicitudes;
-    }
-
-    /**
-     *
-     * @param p
-     * @throws RemoteException
-     *
-     * Asigna los permisosa un usuario
-     */
-    @Override
-    public boolean AsignarPermisos(permisos p) throws RemoteException {
-        boolean ok = false;
-        Connection conex = null;
-        PreparedStatement ps = null;
-        try {
-
-            String statement = "INSERT INTO permisos"
-                    + "(`usuario_id`,`crearItem`,`crearProv`,`crearUsuario`,"
-                    + "`descargarConsumos`,`recibirPedido`,`repDescargos`,`repInventario`,"
-                    + "`repUsuarios`,`repProv`,`repixp`,`solProd`,`realizarCot`,`aprobarCot`,"
-                    + "`ocompra`,`bloqUs`)VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);";
-            conex = Conexion.conexion.getConnection();
-            ps = conex.prepareStatement(statement);
-            ps.setString(1, p.getId());
-            ps.setInt(2, p.isCrearItem());
-            ps.setInt(3, p.isCrearProveedor());
-            ps.setInt(4, p.isCrearUsuario());
-            ps.setInt(5, p.isDescargarConsumos());
-            ps.setInt(6, p.isRecibirPedidos());
-            ps.setInt(7, p.isGenRepDescargos());
-            ps.setInt(8, p.isGenRepInventario());
-            ps.setInt(9, p.isGenRepUsuarios());
-            ps.setInt(10, p.isGenRepProveedores());
-            ps.setInt(11, p.isGenRepItemxProveedor());
-            ps.setInt(12, p.isSolicitarProductos());
-            ps.setInt(13, p.isRealizarCotizaciones());
-            ps.setInt(14, p.isAprobarCotizaciones());
-            ps.setInt(15, p.isGenerarOrdenesCompra());
-            ps.setInt(16, p.isBloquearUsuario());
-            ps.executeUpdate();
-            ok = true;
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (conex != null) {
-                    conex.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return ok;
-    }
-
-    public permisos lista(String id) throws RemoteException {
-        boolean ok = false;
-        Connection conex = null;
-        PreparedStatement ps = null;
-        permisos p = new permisos();
-        ResultSet rs = null;
-        try {
-
-            String statement = "select "
-                    + "`crearItem`,`crearProv`,`crearUsuario`,"
-                    + "`descargarConsumos`,`recibirPedido`,`repDescargos`,`repInventario`,"
-                    + "`repUsuarios`,`repProv`,`repixp`,`solProd`,`realizarCot`,`aprobarCot`,"
-                    + "`ocompra`,`bloqUs`, genfdc001 from permisos where usuario_id =?";
-            conex = Conexion.conexion.getConnection();
-            ps = conex.prepareStatement(statement);
-            ps.setString(1, id);
-            rs = ps.executeQuery();
-            rs.next();
-            p = new permisos("", rs.getInt(1), rs.getInt(2), rs.getInt(3),
-                    rs.getInt(4), rs.getInt(5), rs.getInt(6),
-                    rs.getInt(7), rs.getInt(8), rs.getInt(9),
-                    rs.getInt(10), rs.getInt(11), rs.getInt(12),
-                    rs.getInt(13), rs.getInt(14), rs.getInt(15), rs.getInt(16));
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (conex != null) {
-                    conex.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return p;
     }
 
     /**
