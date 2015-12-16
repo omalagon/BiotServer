@@ -6,6 +6,7 @@
 package Logica;
 
 import Controllers.ItemJpaController;
+import Controllers.ItxsolJpaController;
 import Controllers.PermisosJpaController;
 import Controllers.ProveedorJpaController;
 import Controllers.SolicitudPrJpaController;
@@ -462,49 +463,23 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<BuscarUsuario> buscarEmpleado(String parametro, String valor) throws RemoteException {
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        Connection con = null;
-        String statement = "select id, nombre, lab from usuario where id like ?";
-        String statement2 = "select id, nombre, lab from usuario where nombre like ?";
-        BuscarUsuario buscar = null;
+        EntityManager em = emf.createEntityManager();
+        Query qNombre = em.createNamedQuery("Usuario.findByNombre");
+        Query qId = em.createNamedQuery("Usuario.findById");
         ArrayList<BuscarUsuario> lista = new ArrayList<>();
-        try {
-            con = Conexion.conexion.getConnection();
-            if (parametro.equalsIgnoreCase("nombre")) {
-                ps = con.prepareStatement(statement2);
-            } else if (parametro.equalsIgnoreCase("id")) {
-                ps = con.prepareStatement(statement);
+        if (parametro.equalsIgnoreCase("nombre")) {
+            qNombre.setParameter("nombre", "%" + valor + "%");
+            List<Entities.Usuario> resultList = qNombre.getResultList();
+            for (Entities.Usuario u : resultList) {
+                lista.add(u.UsuarioToBuscarUsuario(u));
             }
-            if (!valor.equalsIgnoreCase("")) {
-                valor = "%" + valor + "%";
-                ps.setString(1, valor);
-                rs = ps.executeQuery();
-                while (rs.next()) {
-                    buscar = new BuscarUsuario(rs.getString(2), rs.getString(1), rs.getString(3));
-                    lista.add(buscar);
-                }
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"Buscar Empleado\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
+        } else if (parametro.equalsIgnoreCase("id")) {
+            qId.setParameter("id", "%" + valor + "%");
+            List<Entities.Usuario> resultList = qId.getResultList();
+            for (Entities.Usuario u : resultList) {
+                lista.add(u.UsuarioToBuscarUsuario(u));
             }
         }
-
         return lista;
     }
 
@@ -745,9 +720,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     public ArrayList<ItemInventario> busquedaItem(String descripcion, String presentacion, String inv) throws RemoteException {
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Item.busqueda");
-        q.setParameter("descripcion", "%"+descripcion+"%");
-        q.setParameter("presentacion", "%"+presentacion+"%");
-        q.setParameter("inv", "%"+inv+"%");
+        q.setParameter("descripcion", "%" + descripcion + "%");
+        q.setParameter("presentacion", "%" + presentacion + "%");
+        q.setParameter("inv", "%" + inv + "%");
         List<Item> resultList = q.getResultList();
         if (resultList == null) {
             return new ArrayList<>();
@@ -760,6 +735,131 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
     }
 
+        /**
+     *
+     * @param sol
+     * @param itemsSolicitud
+     * @return
+     * @throws RemoteException
+     *
+     * Crea la solicitud
+     */
+    @Override
+    public Integer crearSolicitud(solicitudPr sol, ArrayList<ItemInventario> itemsSolicitud) throws RemoteException {
+        boolean solCreada = false;
+        boolean itemsEnviados = false;
+        SolicitudPr s = new SolicitudPr();
+        SolicitudPrJpaController con = new SolicitudPrJpaController(emf);
+        s.setIdSolicitante(sol.getIdSolicitante());
+        s.setFecha(new java.util.Date(sol.getFecha().getTimeInMillis()));
+        s.setObservaciones(sol.getObservaciones());
+        con.create(s);
+        solCreada = true;
+        Double numSol = 0.0;
+        if (solCreada == true) {
+            EntityManager em = emf.createEntityManager();
+            Query q = em.createNamedQuery("SolicitudPr.getUltima");
+            q.setParameter("id", sol.getIdSolicitante());
+            numSol = new Double(q.getResultList().get(0).toString());
+            ItxsolJpaController conItems = new ItxsolJpaController(emf);
+            for (ItemInventario i : itemsSolicitud) {
+                if (i.getCantidadSolicitada()<= 0) {
+                    itemsEnviados = false;
+                } else {
+                    conItems.create(new Itxsol(new Double(Float.toString(i.getCantidadSolicitada())), numSol, new Item(i.getNumero())));
+                }
+            }
+            itemsEnviados = true;
+        }
+        if (itemsEnviados == false) {
+            try {
+                con.destroy(numSol);
+            } catch (IllegalOrphanException | NonexistentEntityException ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        return (solCreada && itemsEnviados) ? numSol.intValue() : 0;
+    }
+
+    /**
+     *
+     * @param id
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public ArrayList<solicitudPr> getIdSolicitud(String id) throws RemoteException {
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("SolicitudPr.findByIdSolicitante");
+        q.setParameter("idSolicitante", id);
+        List<SolicitudPr> resultList = q.getResultList();
+        ArrayList<solicitudPr> retorno = new ArrayList<>();
+        for (SolicitudPr pr : resultList) {
+            retorno.add(pr.tosolicitudPr(pr, id));
+        }
+        return retorno;
+    }
+    
+    /**
+     *
+     * @param id
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public solicitudPr getSolicitud(String id) throws RemoteException
+    {
+        SolicitudPrJpaController contr = new SolicitudPrJpaController(emf);
+        SolicitudPr found = contr.findSolicitudPr(new Double(id));
+        return found.tosolicitudPr(found, found.getIdSolicitante());
+    }
+    
+    /**
+     *
+     * @param numSol
+     * @return ArrayList
+     * @throws RemoteException
+     *
+     * Genera el listado de ítems solicitados asociados a un numero de
+     * solicitud.
+     */
+    @Override
+    public ArrayList<ItemInventario> getItems_numSol(BigDecimal numSol) throws RemoteException {
+        ItemJpaController control = new ItemJpaController(emf);
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itxsol.findByNumSol");
+        q.setParameter("numSol", new Double(numSol.toString()));
+        List<Itxsol> resultList = q.getResultList();
+        ArrayList<ItemInventario> retorno= new ArrayList<>();
+        for (Itxsol i : resultList) {
+            Item findItem = control.findItem(i.getCinterno().getCinterno());
+            ItemInventario itm =findItem.EntityToItem(findItem);
+            itm.setCantidadSolicitada(new Float(i.getCantidadsol()));
+            retorno.add(itm);
+            System.out.println(i.getCinterno().getCinterno());
+        }
+        return retorno;
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     /**
      *
      * @param cinterno
@@ -936,143 +1036,26 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return f.getLab();
     }
 
-    /**
-     *
-     * @param sol
-     * @throws RemoteException
-     *
-     * Crea la solicitud
-     */
-    @Override
-    public void crearSolicitud(solicitudPr sol) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "insert into solicitud_pr (fecha, observaciones, id_solicitante) values(?,?,?);";
-        Date d = new Date(sol.getFecha().getTimeInMillis());
-        try {
-            con = Conexion.conexion.getConnection();
 
-            ps = con.prepareStatement(statement);
-            ps.setDate(1, d);
-            ps.setString(2, sol.getObservaciones());
-            ps.setString(3, sol.getIdSolicitante());
-            ps.executeUpdate();
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"crear solicitud\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
 
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-    }
-
-    /**
-     * @param id
-     * @return BigDecimal
-     * @throws RemoteException
-     *
-     * Método auxiliar para obtener el número de la solicitud.
-     */
-    @Override
-    public BigDecimal solicitudValida(String id) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select num_sol from solicitud_pr where id_solicitante = ? order by num_sol desc";
-        BigDecimal valida = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, id);
-            rs = ps.executeQuery();
-            rs.next();
-            if (rs.getRow() != 0) {
-                valida = rs.getBigDecimal(1);
-            }
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-            System.out.println("Error funcion \"solicitud valida\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-        return valida;
-    }
-
-    /**
-     *
-     * @param itemsSolicitud
-     * @param numSol
-     * @throws RemoteException Inserta en la base de datos los ítems solicitados
-     * por el usuario asociados a un numero de solicitud .
-     */
-    @Override
-    public void itemxsolicitud(ArrayList<ItemInventario> itemsSolicitud, BigDecimal numSol) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "INSERT INTO ITXSOL (CANTIDADSOL,NUM_SOL,CINTERNO ) "
-                    + "VALUES (?,?,?)";
-            ps = con.prepareStatement(statement);
-            for (ItemInventario i : itemsSolicitud) {
-                ps.setFloat(1, i.getCantidadSolicitada());
-                ps.setBigDecimal(2, numSol);
-                ps.setString(3, i.getNumero());
-                ps.executeUpdate();
-                System.out.println("Se registró: " + i.getNumero());
-            }
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-            System.out.println("Error funcion \"item x solicitud\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-    }
-
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     /**
      *
      * @return ArrayList
@@ -1123,57 +1106,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return NoRevisadas;
     }
 
-    /**
-     *
-     * @param numSol
-     * @return ArrayList
-     * @throws RemoteException
-     *
-     * Genera el listado de ítems solicitados asociados a un numero de
-     * solicitud.
-     */
-    @Override
-    public ArrayList<ItemInventario> getItems_numSol(BigDecimal numSol) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        ArrayList<ItemInventario> listado = new ArrayList<>();
-        ItemInventario item = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select cantidad, inventario, item.cinterno, descripcion, presentacion,cantidadsol, precio"
-                    + " from item, ITXSOL where item.CINTERNO = ITXSOL.CINTERNO  and ITXSOL.NUM_SOL = ?;";
-            System.out.println(statement);
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, numSol);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                item = new ItemInventario(rs.getString(3), rs.getString(2), rs.getString(4), rs.getString(5), rs.getFloat(1), rs.getFloat(7), "", "", "", rs.getFloat(6));
-                System.out.println(rs.getFloat(6));
-                listado.add(item);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"get items numSol\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return listado;
-    }
-
+    
     /**
      *
      * @param numSol
@@ -2700,46 +2633,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return lista;
     }
 
-    @Override
-    public ArrayList<solicitudPr> getIdSolicitud(String id) throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        ArrayList<solicitudPr> solicitudes = new ArrayList<>();
-        solicitudPr solicitud = null;
-        GregorianCalendar fecha = new GregorianCalendar();
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select  NUM_SOL, FECHA, OBSERVACIONES from SOLICITUD_PR where id_solicitante = ?";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, id);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                fecha.setTime(rs.getDate(2));
-                solicitud = new solicitudPr(fecha, rs.getString(3), rs.getBigDecimal(1), id, null, null);
-                solicitudes.add(solicitud);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"get Id Solicitud\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return solicitudes;
-    }
+    
 
     @Override
     public ArrayList<solicitudPr> getRevisadas() throws RemoteException {

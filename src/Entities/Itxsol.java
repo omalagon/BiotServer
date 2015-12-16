@@ -52,6 +52,12 @@ public class Itxsol implements Serializable {
     public Itxsol() {
     }
 
+    public Itxsol(Double cantidadsol, double numSol, Item cinterno) {
+        this.cantidadsol = cantidadsol;
+        this.numSol = numSol;
+        this.cinterno = cinterno;
+    }
+
     public Itxsol(Integer id) {
         this.id = id;
     }

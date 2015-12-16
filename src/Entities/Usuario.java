@@ -5,6 +5,7 @@
  */
 package Entities;
 
+import EstructurasAux.BuscarUsuario;
 import EstructurasAux.users;
 import java.io.Serializable;
 import java.math.BigDecimal;
@@ -33,9 +34,9 @@ import javax.xml.bind.annotation.XmlTransient;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Usuario.findAll", query = "SELECT u FROM Usuario u"),
-    @NamedQuery(name = "Usuario.findById", query = "SELECT u FROM Usuario u WHERE u.id = :id"),
+    @NamedQuery(name = "Usuario.findById", query = "SELECT u FROM Usuario u WHERE u.id like :id"),
     @NamedQuery(name = "Usuario.findByPsw", query = "SELECT u FROM Usuario u WHERE u.psw = :psw"),
-    @NamedQuery(name = "Usuario.findByNombre", query = "SELECT u FROM Usuario u WHERE u.nombre = :nombre"),
+    @NamedQuery(name = "Usuario.findByNombre", query = "SELECT u FROM Usuario u WHERE u.nombre like :nombre"),
     @NamedQuery(name = "Usuario.findByCorreo", query = "SELECT u FROM Usuario u WHERE u.correo = :correo"),
     @NamedQuery(name = "Usuario.findByLab", query = "SELECT u FROM Usuario u WHERE u.lab = :lab")})
 public class Usuario implements Serializable {
@@ -232,6 +233,12 @@ public class Usuario implements Serializable {
     public users UsuarioToUsers(Usuario u)
     {
         users uu = new users(new BigDecimal(u.getId()), u.getNombre(), u.getCorreo(), u.getLab());
+        return uu;
+    }
+    
+    public BuscarUsuario UsuarioToBuscarUsuario(Usuario u)
+    {
+        BuscarUsuario uu = new BuscarUsuario(u.getNombre(), u.getId(), u.getLab());
         return uu;
     }
 }

@@ -5,8 +5,11 @@
  */
 package Entities;
 
+import EstructurasAux.solicitudPr;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import javax.persistence.Basic;
 import javax.persistence.CascadeType;
@@ -33,6 +36,7 @@ import javax.xml.bind.annotation.XmlTransient;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "SolicitudPr.findAll", query = "SELECT s FROM SolicitudPr s"),
+    @NamedQuery(name = "SolicitudPr.getUltima", query = "SELECT s.numSol FROM SolicitudPr s WHERE s.idSolicitante = :id ORDER BY s.numSol DESC"),
     @NamedQuery(name = "SolicitudPr.findByFecha", query = "SELECT s FROM SolicitudPr s WHERE s.fecha = :fecha"),
     @NamedQuery(name = "SolicitudPr.findByObservaciones", query = "SELECT s FROM SolicitudPr s WHERE s.observaciones = :observaciones"),
     @NamedQuery(name = "SolicitudPr.findByIdSolicitante", query = "SELECT s FROM SolicitudPr s WHERE s.idSolicitante = :idSolicitante"),
@@ -157,4 +161,11 @@ public class SolicitudPr implements Serializable {
         return "Entities.SolicitudPr[ numSol=" + numSol + " ]";
     }
     
+    public solicitudPr tosolicitudPr(SolicitudPr so, String idSolicitante)
+    {
+        GregorianCalendar fecha = new GregorianCalendar();
+        fecha.setTime(so.getFecha());
+        solicitudPr sol = new solicitudPr(fecha, so.getObservaciones(), new BigDecimal(so.getNumSol().toString()), idSolicitante, null, null);
+        return sol;
+    }
 }
