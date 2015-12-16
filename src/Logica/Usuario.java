@@ -753,6 +753,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         s.setIdSolicitante(sol.getIdSolicitante());
         s.setFecha(new java.util.Date(sol.getFecha().getTimeInMillis()));
         s.setObservaciones(sol.getObservaciones());
+        s.setRevisado("NO");
         con.create(s);
         solCreada = true;
         Double numSol = 0.0;
