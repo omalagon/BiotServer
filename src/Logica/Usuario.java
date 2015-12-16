@@ -899,7 +899,41 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return solicitudes;
     }
-
+    //Procesamiento de solicitudes
+    /**
+     *
+     * @param numSol
+     * @param Aprobado
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public ArrayList<ItemInventario> getItemsAprobado(BigDecimal numSol, String Aprobado) throws RemoteException
+    {
+        ItemJpaController control = new ItemJpaController(emf);
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itxsol.findByAprobado");
+        q.setParameter("numSol",  new Double(numSol.toString()));
+        q.setParameter("aprobado", "%"+Aprobado+"%");
+        List<Itxsol> resultList = q.getResultList();
+        ArrayList<ItemInventario> retorno = new ArrayList<>();
+        for (Itxsol i : resultList) {
+            Item findItem = control.findItem(i.getCinterno().getCinterno());
+            ItemInventario itm = findItem.EntityToItem(findItem);
+            itm.setCantidadSolicitada(new Float(i.getCantidadsol()));
+            retorno.add(itm);
+            System.out.println(i.getCinterno().getCinterno());
+        }
+        return retorno;
+    }
+    
+    
+    
+    
+    
+    
+    
+    
     //Datos formatos
 
     /**

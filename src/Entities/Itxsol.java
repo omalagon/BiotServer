@@ -30,8 +30,12 @@ import javax.xml.bind.annotation.XmlRootElement;
     @NamedQuery(name = "Itxsol.findAll", query = "SELECT i FROM Itxsol i"),
     @NamedQuery(name = "Itxsol.findById", query = "SELECT i FROM Itxsol i WHERE i.id = :id"),
     @NamedQuery(name = "Itxsol.findByCantidadsol", query = "SELECT i FROM Itxsol i WHERE i.cantidadsol = :cantidadsol"),
+    @NamedQuery(name = "Itxsol.findByAprobado", query = "SELECT i FROM Itxsol i WHERE i.numSol = :numSol AND i.aprobado like :aprobado"),
     @NamedQuery(name = "Itxsol.findByNumSol", query = "SELECT i FROM Itxsol i WHERE i.numSol = :numSol")})
 public class Itxsol implements Serializable {
+
+    @Column(name = "aprobado")
+    private String aprobado;
 
     private static final long serialVersionUID = 1L;
     @Id
@@ -122,6 +126,14 @@ public class Itxsol implements Serializable {
     @Override
     public String toString() {
         return "Entities.Itxsol[ id=" + id + " ]";
+    }
+
+    public String getAprobado() {
+        return aprobado;
+    }
+
+    public void setAprobado(String aprobado) {
+        this.aprobado = aprobado;
     }
     
 }
