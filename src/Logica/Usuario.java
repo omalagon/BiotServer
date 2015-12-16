@@ -5,6 +5,7 @@
  */
 package Logica;
 
+import Controllers.DatosformatosJpaController;
 import Controllers.ItemJpaController;
 import Controllers.ItxsolJpaController;
 import Controllers.PermisosJpaController;
@@ -14,6 +15,7 @@ import Controllers.UsuarioJpaController;
 import Controllers.exceptions.IllegalOrphanException;
 import Controllers.exceptions.NonexistentEntityException;
 import Controllers.exceptions.PreexistingEntityException;
+import Entities.Datosformatos;
 import Entities.Item;
 import Entities.Itxsol;
 import Entities.Permisos;
@@ -24,6 +26,7 @@ import EstructurasAux.solicitudPr;
 import EstructurasAux.ItemInventario;
 import EstructurasAux.aprobacion;
 import EstructurasAux.cotizaciones;
+import EstructurasAux.datosFormatos;
 import EstructurasAux.descargo;
 import EstructurasAux.fdc_001;
 import EstructurasAux.informeDescargos;
@@ -735,7 +738,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
     }
 
-        /**
+    /**
      *
      * @param sol
      * @param itemsSolicitud
@@ -764,7 +767,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             numSol = new Double(q.getResultList().get(0).toString());
             ItxsolJpaController conItems = new ItxsolJpaController(emf);
             for (ItemInventario i : itemsSolicitud) {
-                if (i.getCantidadSolicitada()<= 0) {
+                if (i.getCantidadSolicitada() <= 0) {
                     itemsEnviados = false;
                 } else {
                     conItems.create(new Itxsol(new Double(Float.toString(i.getCantidadSolicitada())), numSol, new Item(i.getNumero())));
@@ -796,11 +799,15 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         List<SolicitudPr> resultList = q.getResultList();
         ArrayList<solicitudPr> retorno = new ArrayList<>();
         for (SolicitudPr pr : resultList) {
-            retorno.add(pr.tosolicitudPr(pr, id));
+            solicitudPr s = pr.tosolicitudPr(pr, id);
+            users datosUsuario = this.getDatosUsuario(id);
+            s.setNombreSolicitante(datosUsuario.getNombre());
+            s.setArea(datosUsuario.getLab());
+            retorno.add(s);
         }
         return retorno;
     }
-    
+
     /**
      *
      * @param id
@@ -808,13 +815,16 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      * @throws RemoteException
      */
     @Override
-    public solicitudPr getSolicitud(String id) throws RemoteException
-    {
+    public solicitudPr getSolicitud(String id) throws RemoteException {
         SolicitudPrJpaController contr = new SolicitudPrJpaController(emf);
         SolicitudPr found = contr.findSolicitudPr(new Double(id));
-        return found.tosolicitudPr(found, found.getIdSolicitante());
+        users datosUsuario = this.getDatosUsuario(found.getIdSolicitante());
+        solicitudPr s = found.tosolicitudPr(found, found.getIdSolicitante());
+        s.setNombreSolicitante(datosUsuario.getNombre());
+        s.setArea(datosUsuario.getLab());
+        return s;
     }
-    
+
     /**
      *
      * @param numSol
@@ -831,10 +841,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Query q = em.createNamedQuery("Itxsol.findByNumSol");
         q.setParameter("numSol", new Double(numSol.toString()));
         List<Itxsol> resultList = q.getResultList();
-        ArrayList<ItemInventario> retorno= new ArrayList<>();
+        ArrayList<ItemInventario> retorno = new ArrayList<>();
         for (Itxsol i : resultList) {
             Item findItem = control.findItem(i.getCinterno().getCinterno());
-            ItemInventario itm =findItem.EntityToItem(findItem);
+            ItemInventario itm = findItem.EntityToItem(findItem);
             itm.setCantidadSolicitada(new Float(i.getCantidadsol()));
             retorno.add(itm);
             System.out.println(i.getCinterno().getCinterno());
@@ -842,12 +852,71 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return retorno;
     }
 
-    
-    
-    
-    
-    
-    
+    /**
+     *
+     * @return @throws RemoteException
+     *
+     * Selecciona las solicitudes relacionadas a un usuario
+     */
+    @Override
+    public ArrayList<solicitudPr> numsSol() throws RemoteException {
+        ArrayList<solicitudPr> solicitudes = new ArrayList<>();
+        SolicitudPrJpaController contr = new SolicitudPrJpaController(emf);
+        List<SolicitudPr> findSolicitudPrEntities = contr.findSolicitudPrEntities();
+        ItxsolJpaController cont = new ItxsolJpaController(emf);
+        for (SolicitudPr f : findSolicitudPrEntities) {
+            solicitudPr s = f.tosolicitudPr(f, f.getIdSolicitante());
+            users datosUsuario = this.getDatosUsuario(f.getIdSolicitante());
+            s.setNombreSolicitante(datosUsuario.getNombre());
+            s.setArea(datosUsuario.getLab());
+            solicitudes.add(s);
+        }
+        return solicitudes;
+    }
+
+    /**
+     *
+     * @param revisado
+     * @return
+     * @throws RemoteException
+     * 
+     * Genera un listado de solicitudes de acuerdo al parámetro ingresado: todas "",
+     * las no revisadas "NO" y las revisadas "SI"
+     */
+    @Override
+    public ArrayList<solicitudPr> getSolicitudes(String revisado) throws RemoteException {
+        ArrayList<solicitudPr> solicitudes = new ArrayList<>();
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("SolicitudPr.findByRevisado");
+        q.setParameter("revisado", "%" + revisado + "%");
+        List<SolicitudPr> resultList = q.getResultList();
+        for (SolicitudPr s : resultList) {
+            solicitudPr sol = s.tosolicitudPr(s, s.getIdSolicitante());
+            users datosUsuario = this.getDatosUsuario(s.getIdSolicitante());
+            sol.setNombreSolicitante(datosUsuario.getNombre());
+            sol.setArea(datosUsuario.getLab());
+            solicitudes.add(sol);
+        }
+        return solicitudes;
+    }
+
+    //Datos formatos
+
+    /**
+     *
+     * @param id
+     * @return
+     * @throws RemoteException
+     * 
+     * Devuelve los datos de un formulario de acuerdo al id ingresado
+     */
+    @Override
+    public datosFormatos getDatos(String id)throws RemoteException
+    {
+        DatosformatosJpaController datos = new DatosformatosJpaController(emf);
+        Datosformatos found = datos.findDatosformatos(new Integer(id));
+        return new datosFormatos(found.getRevision(), found.getFechaactualizacion(), found.getTitulo());
+    }
     
     
     
@@ -1022,92 +1091,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return lista;
     }
 
-    /**
-     *
-     * @param id
-     * @return String
-     * @throws RemoteException
-     *
-     * Buscar el laboratorio al cual pertenece un usuario
-     */
-    @Override
-    public String area(String id) throws RemoteException {
-        UsuarioJpaController us = new UsuarioJpaController(emf);
-        Entities.Usuario f = us.findUsuario(id);
-        return f.getLab();
-    }
+    
 
-
-
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    /**
-     *
-     * @return ArrayList
-     * @throws RemoteException
-     *
-     * Genera el listado de las solicitudes que aún no se han revisado
-     */
-    @Override
-    public ArrayList<solicitudPr> getNoRevisadas() throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        ArrayList<solicitudPr> NoRevisadas = new ArrayList<>();
-        solicitudPr rev = null;
-        GregorianCalendar fecha = new GregorianCalendar();
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select s.fecha, s.observaciones, s.num_sol,u.id,  u.nombre, u.lab "
-                    + "from usuario u, solicitud_pr s where u.id = s.id_solicitante and s.revisado = 'NO' order by s.num_sol;";
-            ps = con.prepareStatement(statement);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                fecha.setTime(rs.getDate(1));
-                rev = new solicitudPr(fecha, rs.getString(2), rs.getBigDecimal(3), rs.getString(4), rs.getString(5), rs.getString(6));
-                NoRevisadas.add(rev);
-            }
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-            System.out.println("Error funcion \"get no revisadas\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-        return NoRevisadas;
-    }
-
-    
     /**
      *
      * @param numSol
@@ -2148,62 +2133,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     /**
      *
-     * @return @throws RemoteException
-     *
-     * Selecciona las solicitudes relacionadas a un usuario
-     */
-    @Override
-    public ArrayList<solicitudPr> numsSol() throws RemoteException {
-        ArrayList<solicitudPr> solicitudes = new ArrayList<>();
-        Connection conex = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        try {
-
-            String statement = "select sol.FECHA, sol.OBSERVACIONES, sol.NUM_SOL, ra.id, ra.NOMBRE, ra.LAB "
-                    + "from SOLICITUD_PR sol, usuario ra "
-                    + "where sol.id_solicitante = ra.ID and sol.REVISADO = 'SI' order by sol.NUM_SOL";
-            String statement2 = "select s.fecha, s.observaciones, s.num_sol,u.id,  u.nombre, u.lab "
-                    + "from usuario u, solicitud_pr s where u.id = s.id_solicitante and s.revisado = 'NO' order by s.num_sol;";
-
-            ArrayList<ArrayList<ItemInventario>> todas = new ArrayList<>();
-
-            conex = Conexion.conexion.getConnection();
-            ps = conex.prepareStatement(statement);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                solicitudes.add(new solicitudPr(new GregorianCalendar(), rs.getString(2), rs.getBigDecimal(3), rs.getString(4), rs.getString(5), rs.getString(6)));
-            }
-
-            ps = conex.prepareStatement(statement2);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                solicitudes.add(new solicitudPr(new GregorianCalendar(), rs.getString(2), rs.getBigDecimal(3), rs.getString(4), rs.getString(5), rs.getString(6)));
-            }
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (conex != null) {
-                    conex.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return solicitudes;
-    }
-
-    /**
-     *
      * @param mes
      * @return
      * @throws RemoteException
@@ -2581,7 +2510,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 + "PRESENTACION, CANTIDAD from Item where INVENTARIO = ?";
         ArrayList<ItemInventario> lista = new ArrayList<>();
         try {
-            sector = this.area(id.toString());
+            sector = this.getDatosUsuario(id.toString()).getLab();
 
         } catch (RemoteException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
@@ -2635,49 +2564,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     
-
-    @Override
-    public ArrayList<solicitudPr> getRevisadas() throws RemoteException {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        ArrayList<solicitudPr> Revisadas = new ArrayList<>();
-        solicitudPr rev = null;
-        GregorianCalendar fecha = new GregorianCalendar();
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select sol.FECHA, sol.OBSERVACIONES, sol.NUM_SOL, ra.NOMBRE, ra.LAB \n"
-                    + "from SOLICITUD_PR sol, usuario ra \n"
-                    + "where sol.id_solicitante = ra.ID and sol.REVISADO = 'SI' order by sol.NUM_SOL";
-            ps = con.prepareStatement(statement);
-            rs = ps.executeQuery();
-            System.out.println(statement);
-            while (rs.next()) {
-                fecha.setTime(rs.getDate(1));
-                rev = new solicitudPr(fecha, rs.getString(2), rs.getBigDecimal(3), null, rs.getString(4), rs.getString(5));
-                Revisadas.add(rev);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"get revisadas\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return Revisadas;
-    }
 
     @Override
     public ArrayList<itemxproveedor> getItemxproveedor(String inv, String codigo) throws RemoteException {
