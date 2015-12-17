@@ -28,11 +28,14 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Itxsol.findAll", query = "SELECT i FROM Itxsol i"),
+    @NamedQuery(name = "Itxsol.findSol_Item", query = "SELECT i FROM Itxsol i where i.numSol = :numSol AND i.cinterno = :cinterno"),
     @NamedQuery(name = "Itxsol.findById", query = "SELECT i FROM Itxsol i WHERE i.id = :id"),
     @NamedQuery(name = "Itxsol.findByCantidadsol", query = "SELECT i FROM Itxsol i WHERE i.cantidadsol = :cantidadsol"),
     @NamedQuery(name = "Itxsol.findByAprobado", query = "SELECT i FROM Itxsol i WHERE i.numSol = :numSol AND i.aprobado like :aprobado"),
     @NamedQuery(name = "Itxsol.findByNumSol", query = "SELECT i FROM Itxsol i WHERE i.numSol = :numSol")})
 public class Itxsol implements Serializable {
+    @Column(name = "cantidadaprobada")
+    private Double cantidadaprobada;
 
     @Column(name = "aprobado")
     private String aprobado;
@@ -134,6 +137,14 @@ public class Itxsol implements Serializable {
 
     public void setAprobado(String aprobado) {
         this.aprobado = aprobado;
+    }
+
+    public Double getCantidadaprobada() {
+        return cantidadaprobada;
+    }
+
+    public void setCantidadaprobada(Double cantidadaprobada) {
+        this.cantidadaprobada = cantidadaprobada;
     }
     
 }

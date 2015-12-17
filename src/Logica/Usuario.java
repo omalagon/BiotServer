@@ -8,6 +8,7 @@ package Logica;
 import Controllers.DatosformatosJpaController;
 import Controllers.ItemJpaController;
 import Controllers.ItxsolJpaController;
+import Controllers.IxpJpaController;
 import Controllers.PermisosJpaController;
 import Controllers.ProveedorJpaController;
 import Controllers.SolicitudPrJpaController;
@@ -18,6 +19,8 @@ import Controllers.exceptions.PreexistingEntityException;
 import Entities.Datosformatos;
 import Entities.Item;
 import Entities.Itxsol;
+import Entities.Ixp;
+import Entities.IxpPK;
 import Entities.Permisos;
 import Entities.Proveedor;
 import Entities.SolicitudPr;
@@ -879,9 +882,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      * @param revisado
      * @return
      * @throws RemoteException
-     * 
-     * Genera un listado de solicitudes de acuerdo al parámetro ingresado: todas "",
-     * las no revisadas "NO" y las revisadas "SI"
+     *
+     * Genera un listado de solicitudes de acuerdo al parámetro ingresado: todas
+     * "", las no revisadas "NO" y las revisadas "SI"
      */
     @Override
     public ArrayList<solicitudPr> getSolicitudes(String revisado) throws RemoteException {
@@ -899,6 +902,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return solicitudes;
     }
+
     //Procesamiento de solicitudes
     /**
      *
@@ -908,13 +912,12 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      * @throws RemoteException
      */
     @Override
-    public ArrayList<ItemInventario> getItemsAprobado(BigDecimal numSol, String Aprobado) throws RemoteException
-    {
+    public ArrayList<ItemInventario> getItemsAprobado(BigDecimal numSol, String Aprobado) throws RemoteException {
         ItemJpaController control = new ItemJpaController(emf);
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Itxsol.findByAprobado");
-        q.setParameter("numSol",  new Double(numSol.toString()));
-        q.setParameter("aprobado", "%"+Aprobado+"%");
+        q.setParameter("numSol", new Double(numSol.toString()));
+        q.setParameter("aprobado", "%" + Aprobado + "%");
         List<Itxsol> resultList = q.getResultList();
         ArrayList<ItemInventario> retorno = new ArrayList<>();
         for (Itxsol i : resultList) {
@@ -926,44 +929,73 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return retorno;
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    //Datos formatos
 
+    /**
+     *
+     * @param items
+     * @param sol
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public boolean aprobarItems(ArrayList<ItemInventario> items, solicitudPr sol, String proveedor) throws RemoteException {
+        boolean itxActualizado = false;
+        boolean solicitudActualizada = false;
+        Double numsol = new Double(sol.getNum_sol().toString());
+        try {
+            SolicitudPrJpaController contr = new SolicitudPrJpaController(emf);
+            SolicitudPr solicitud = contr.findSolicitudPr(numsol);
+            solicitud.setIdAo(sol.getIdAO());
+            EntityManager em = emf.createEntityManager();
+            Query q = em.createNamedQuery("Itxsol.findSol_Item");
+            q.setParameter("numSol", numsol);
+            ItxsolJpaController con = new ItxsolJpaController(emf);
+            for (ItemInventario item : items) {
+                ItemJpaController itemJpaController = new ItemJpaController(emf);
+                Item findItem = itemJpaController.findItem(item.getNumero());
+                findItem.setPrecio(new Double(Float.toString(item.getPrecio())));
+                q.setParameter("cinterno", findItem);
+                List<Itxsol> resultList = q.getResultList();
+                Itxsol get = resultList.get(0);
+                Itxsol found = con.findItxsol(get.getId());
+                found.setAprobado("SI");
+                found.setCantidadaprobada(new Double(item.getCantidadSolicitada()));
+                con.edit(found);
+                itxActualizado = true;
+                itemJpaController.edit(findItem);
+                this.asociarItem(item.getNumero(), proveedor, Float.toString(item.getPrecio()));
+            }
+            q = em.createNamedQuery("Itxsol.findByNumSol");
+            q.setParameter("numSol", numsol);
+            List resultList = q.getResultList();
+            if (itxActualizado && resultList.size() == items.size()) {
+                solicitud.setRevisado("SI");
+                contr.edit(solicitud);
+                solicitudActualizada = true;
+            }
+
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return itxActualizado;
+    }
+
+    //Datos formatos
     /**
      *
      * @param id
      * @return
      * @throws RemoteException
-     * 
+     *
      * Devuelve los datos de un formulario de acuerdo al id ingresado
      */
     @Override
-    public datosFormatos getDatos(String id)throws RemoteException
-    {
+    public datosFormatos getDatos(String id) throws RemoteException {
         DatosformatosJpaController datos = new DatosformatosJpaController(emf);
         Datosformatos found = datos.findDatosformatos(new Integer(id));
         return new datosFormatos(found.getRevision(), found.getFechaactualizacion(), found.getTitulo());
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     /**
      *
      * @param cinterno
@@ -976,46 +1008,24 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean asociarItem(String cinterno, String NIT, String precio) throws RemoteException {
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        Connection con = null;
-        boolean creado = false;
-        String id = "";
+        boolean hecho = false;
         try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement("select * from item where cinterno = ? ;");
-            ps.setString(1, cinterno);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                id = rs.getString(1);
+            IxpJpaController ixpCo = new IxpJpaController(emf);
+            Ixp findIxp = ixpCo.findIxp(new IxpPK(NIT, cinterno));
+            Ixp itm = new Ixp(new IxpPK(NIT, cinterno));
+            itm.setItem(new Item(cinterno));
+            itm.setProveedor(new Proveedor(NIT));
+            itm.setPrecio(new Double(precio));
+            if (findIxp == null) {
+                ixpCo.create(itm);
+            } else {
+                ixpCo.edit(itm);
             }
-            ps = con.prepareStatement("insert into ixp values(?,?,?);");
-            ps.setString(1, NIT);
-            ps.setString(2, id);
-            ps.setString(3, precio);
-            ps.executeUpdate();
-            creado = true;
-        } catch (SQLException ex) {
-            creado = false;
-            System.out.println("Error en la función \"Asociar Ítem\"");
+            hecho = true;
+        } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexión");
-            }
         }
-        return creado;
+        return hecho;
     }
 
     /**
@@ -1124,8 +1134,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return lista;
     }
-
-    
 
     /**
      *
@@ -2596,8 +2604,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
         return lista;
     }
-
-    
 
     @Override
     public ArrayList<itemxproveedor> getItemxproveedor(String inv, String codigo) throws RemoteException {
