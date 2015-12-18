@@ -1194,6 +1194,30 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return itxActualizado;
     }
 
+    /**
+     *
+     * @param numSol
+     * @param cinterno
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public String getCantAprobada(String numSol, String cinterno) throws RemoteException
+    {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        ItemJpaController itm = new ItemJpaController(emf);
+        Item findItem = itm.findItem(cinterno);
+        Query q = em.createNamedQuery("Itxsol.findSol_Item");
+        q.setParameter("numSol", new BigDecimal(numSol));
+        q.setParameter("cinterno", findItem);
+        List<Itxsol> resultList = q.getResultList();
+        for (Itxsol r : resultList) {
+            System.out.println(r.getCinterno().getCinterno());
+        }
+        return resultList.get(0).getCantidadaprobada().toString();
+    }
+    
     //Datos formatos
     /**
      *

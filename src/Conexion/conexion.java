@@ -28,7 +28,7 @@ public class conexion  {
            //Connection con=DriverManager.getConnection("jdbc:mysql://localhost/","web219-system","oscar");///
            Connection con=DriverManager.getConnection(
            //"jdbc:mysql://localhost:9999/biotrends?zeroDateTimeBehavior=convertToNull","root","oscar"
-           "jdbc:mysql://localhost:3306/biotrends_new?zeroDateTimeBehavior=convertToNull", "root", "oscar"
+           "jdbc:mysql://localhost:3306/biotrends?zeroDateTimeBehavior=convertToNull", "root", "oscar"
            );
            
            if (con!=null) 
