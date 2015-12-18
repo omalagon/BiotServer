@@ -6,11 +6,12 @@
 package Entities;
 
 import java.io.Serializable;
+import javax.persistence.Basic;
 import javax.persistence.Column;
-import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 import javax.persistence.NamedQueries;
 import javax.persistence.NamedQuery;
 import javax.persistence.Table;
@@ -25,41 +26,65 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Ixp.findAll", query = "SELECT i FROM Ixp i"),
-    @NamedQuery(name = "Ixp.findByNit", query = "SELECT i FROM Ixp i WHERE i.ixpPK.nit = :nit"),
-    @NamedQuery(name = "Ixp.findByCinterno", query = "SELECT i FROM Ixp i WHERE i.ixpPK.cinterno = :cinterno"),
+    @NamedQuery(name = "Ixp.findById", query = "SELECT i FROM Ixp i WHERE i.id = :id"),
+    @NamedQuery(name = "Ixp.findByNit", query = "SELECT i FROM Ixp i WHERE i.nit = :nit"),
+    @NamedQuery(name = "Ixp.findByCinterno", query = "SELECT i FROM Ixp i WHERE i.cinterno = :cinterno"),
+    @NamedQuery(name = "Ixp.findByCinterno_NIT", query = "SELECT i FROM Ixp i WHERE i.cinterno = :cinterno AND i.nit =:nit"),
+    @NamedQuery(name = "Ixp.findByCinterno_Precio", query = "SELECT i FROM Ixp i WHERE i.cinterno = :cinterno AND i.precio = :precio ORDER BY i.id DESC"),
     @NamedQuery(name = "Ixp.findByPrecio", query = "SELECT i FROM Ixp i WHERE i.precio = :precio")})
 public class Ixp implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    @EmbeddedId
-    protected IxpPK ixpPK;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Basic(optional = false)
+    @Column(name = "id")
+    private Integer id;
+    @Basic(optional = false)
+    @Column(name = "nit")
+    private String nit;
+    @Basic(optional = false)
+    @Column(name = "cinterno")
+    private String cinterno;
     // @Max(value=?)  @Min(value=?)//if you know range of your decimal fields consider using these annotations to enforce field validation
     @Column(name = "precio")
     private Double precio;
-    @JoinColumn(name = "nit", referencedColumnName = "nit", insertable = false, updatable = false)
-    @ManyToOne(optional = false)
-    private Proveedor proveedor;
-    @JoinColumn(name = "cinterno", referencedColumnName = "cinterno", insertable = false, updatable = false)
-    @ManyToOne(optional = false)
-    private Item item;
 
     public Ixp() {
     }
 
-    public Ixp(IxpPK ixpPK) {
-        this.ixpPK = ixpPK;
+    public Ixp(Integer id) {
+        this.id = id;
     }
 
-    public Ixp(String nit, String cinterno) {
-        this.ixpPK = new IxpPK(nit, cinterno);
+    public Ixp(Integer id, String nit, String cinterno) {
+        this.id = id;
+        this.nit = nit;
+        this.cinterno = cinterno;
     }
 
-    public IxpPK getIxpPK() {
-        return ixpPK;
+    public Integer getId() {
+        return id;
     }
 
-    public void setIxpPK(IxpPK ixpPK) {
-        this.ixpPK = ixpPK;
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public String getNit() {
+        return nit;
+    }
+
+    public void setNit(String nit) {
+        this.nit = nit;
+    }
+
+    public String getCinterno() {
+        return cinterno;
+    }
+
+    public void setCinterno(String cinterno) {
+        this.cinterno = cinterno;
     }
 
     public Double getPrecio() {
@@ -70,26 +95,10 @@ public class Ixp implements Serializable {
         this.precio = precio;
     }
 
-    public Proveedor getProveedor() {
-        return proveedor;
-    }
-
-    public void setProveedor(Proveedor proveedor) {
-        this.proveedor = proveedor;
-    }
-
-    public Item getItem() {
-        return item;
-    }
-
-    public void setItem(Item item) {
-        this.item = item;
-    }
-
     @Override
     public int hashCode() {
         int hash = 0;
-        hash += (ixpPK != null ? ixpPK.hashCode() : 0);
+        hash += (id != null ? id.hashCode() : 0);
         return hash;
     }
 
@@ -100,7 +109,7 @@ public class Ixp implements Serializable {
             return false;
         }
         Ixp other = (Ixp) object;
-        if ((this.ixpPK == null && other.ixpPK != null) || (this.ixpPK != null && !this.ixpPK.equals(other.ixpPK))) {
+        if ((this.id == null && other.id != null) || (this.id != null && !this.id.equals(other.id))) {
             return false;
         }
         return true;
@@ -108,7 +117,7 @@ public class Ixp implements Serializable {
 
     @Override
     public String toString() {
-        return "Entities.Ixp[ ixpPK=" + ixpPK + " ]";
+        return "Entities.Ixp[ id=" + id + " ]";
     }
     
 }

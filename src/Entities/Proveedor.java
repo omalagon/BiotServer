@@ -63,8 +63,6 @@ public class Proveedor implements Serializable {
     private String ciudad;
     @Column(name = "contacto")
     private String contacto;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "proveedor")
-    private List<Ixp> ixpList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "proveedorNit")
     private List<Itmxorden> itmxordenList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "nit")
@@ -167,14 +165,6 @@ public class Proveedor implements Serializable {
         this.contacto = contacto;
     }
 
-    @XmlTransient
-    public List<Ixp> getIxpList() {
-        return ixpList;
-    }
-
-    public void setIxpList(List<Ixp> ixpList) {
-        this.ixpList = ixpList;
-    }
 
     @XmlTransient
     public List<Itmxorden> getItmxordenList() {

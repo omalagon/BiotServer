@@ -20,7 +20,6 @@ import Entities.Datosformatos;
 import Entities.Item;
 import Entities.Itxsol;
 import Entities.Ixp;
-import Entities.IxpPK;
 import Entities.Permisos;
 import Entities.Proveedor;
 import Entities.SolicitudPr;
@@ -75,7 +74,6 @@ import javax.persistence.*;
  */
 public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, Serializable {
 
-    private EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
     private Object Entities;
 
     public Usuario() throws RemoteException {
@@ -93,6 +91,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean crearItem(ItemInventario item) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         ItemJpaController itm = new ItemJpaController(emf);
         Item i = new Item(item.getNumero(), item.getInventario(), item.getDescripcion(), item.getPresentacion(), new Double(Float.toString(item.getCantidad())),
@@ -100,9 +99,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         try {
             itm.create(i);
             hecho = true;
+            emf.close();
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
+
         return hecho;
     }
 
@@ -116,6 +117,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean editarItem(ItemInventario item) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         ItemJpaController itm = new ItemJpaController(emf);
         Item i = itm.findItem(item.getNumero());
@@ -130,6 +132,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         try {
             itm.edit(i);
             hecho = true;
+            emf.close();
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -146,9 +149,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ItemInventario buscarInfoItem(String cinterno) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ItemJpaController itm = new ItemJpaController(emf);
         Item findItem = itm.findItem(cinterno);
         if (findItem == null) {
+            emf.close();
             return new ItemInventario();
         } else {
             return findItem.EntityToItem(findItem);
@@ -166,11 +171,13 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean eliminarItem(ItemInventario item) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         ItemJpaController itm = new ItemJpaController(emf);
         try {
             itm.destroy(item.getNumero());
             hecho = true;
+            emf.close();
         } catch (IllegalOrphanException | NonexistentEntityException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -271,18 +278,98 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<ItemInventario> itemInventarioAdmin() throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ArrayList<ItemInventario> lista = new ArrayList<>();
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Item.InventarioAdmin");
         List<Item> resultList = q.getResultList();
-        System.out.println(resultList.size());
         for (Item i : resultList) {
             lista.add(i.EntityToItem(i));
         }
+        emf.close();
         return lista;
     }
 
-    //Gestión Proveedores
+    /**
+     *
+     * @param cinterno
+     * @param NIT
+     * @param precio
+     * @return
+     * @throws RemoteException
+     *
+     * Asocia un ítem a un proveedor
+     */
+    @Override
+    public boolean asociarItem(String cinterno, String NIT, String precio) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        boolean hecho = false;
+        try {
+            Query q = em.createNamedQuery("Ixp.findByCinterno_NIT");
+            q.setParameter("cinterno", cinterno);
+            q.setParameter("nit", NIT);
+            IxpJpaController ixpCo = new IxpJpaController(emf);
+            List<Ixp> resultList = q.getResultList();
+            Ixp itm= new Ixp();
+            if (!resultList.isEmpty()) {
+                itm = resultList.get(0);
+            }
+                itm.setCinterno(cinterno);
+                itm.setNit(NIT);
+                itm.setPrecio(new Double(precio));
+                if (resultList.isEmpty()) {
+                    ixpCo.create(itm);
+                } else {
+                    ixpCo.edit(itm);
+                }
+                hecho = true;
+            
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        emf.close();
+        return hecho;
+    }
+
+    /**
+     *
+     * @param cinterno
+     * @param NIT
+     * @param precio
+     * @return
+     * @throws RemoteException
+     *
+     * Asocia un ítem a un proveedor
+     */
+    @Override
+    public boolean desasociarItem(String cinterno, String NIT, String precio) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        boolean hecho = false;
+        try {
+            Query q = em.createNamedQuery("Ixp.findByCinterno_NIT");
+            q.setParameter("cinterno", cinterno);
+            q.setParameter("nit", NIT);
+            IxpJpaController ixpCo = new IxpJpaController(emf);
+            List<Ixp> resultList = q.getResultList();
+            Ixp itm= new Ixp();
+            if (!resultList.isEmpty()) {
+                itm = resultList.get(0);
+                itm.setCinterno(cinterno);
+                itm.setNit(NIT);
+                itm.setPrecio(new Double(precio));
+                ixpCo.destroy(itm.getId());
+            }
+                hecho = true;
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        emf.close();
+        return hecho;
+    }
+
+//Gestión Proveedores
     /**
      *
      * @param NIT
@@ -300,13 +387,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean CrearProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String correo, String celular, String contacto) throws RemoteException {
-
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean valido = false;
         ProveedorJpaController prov = new ProveedorJpaController(emf);
         Proveedor nuevo = new Proveedor(NIT, Nombre, direccion, correo, telefax, celular, ciudad, contacto);
         try {
             prov.create(nuevo);
             valido = true;
+            emf.close();
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -330,6 +418,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean EditarProveedor(String NIT, String Nombre, String direccion, String telefono, String telefax, String ciudad, String correo, String celular, String contacto) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         ProveedorJpaController prov = new ProveedorJpaController(emf);
         Proveedor find = prov.findProveedor(NIT);
@@ -344,6 +433,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         try {
             prov.edit(find);
             hecho = true;
+            emf.close();
         } catch (NonexistentEntityException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         } catch (Exception ex) {
@@ -362,6 +452,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<proveedor> todosProveedores() throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ArrayList<proveedor> proveedores = new ArrayList<>();
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Proveedor.findAllOrderByName");
@@ -369,6 +460,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         for (Proveedor p : resultList) {
             proveedores.add(new proveedor(p.getNit(), p.getNombre(), p.getDir(), p.getTel(), p.getFax(), p.getCiudad(), p.getCelular(), p.getCorreo(), p.getContacto()));
         }
+        emf.close();
         return proveedores;
     }
 
@@ -382,9 +474,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public proveedor getDatosProveedor(String NIT) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ProveedorJpaController prov = new ProveedorJpaController(emf);
         Proveedor find = prov.findProveedor(NIT);
         proveedor p = new proveedor(find.getNit(), find.getNombre(), find.getDir(), find.getTel(), find.getFax(), find.getCiudad(), find.getCelular(), find.getCorreo(), find.getContacto());
+        emf.close();
         return p;
     }
 
@@ -396,11 +490,13 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean EliminarProveedor(String NIT) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         ProveedorJpaController prov = new ProveedorJpaController(emf);
         try {
             prov.destroy(NIT);
             hecho = true;
+            emf.close();
         } catch (IllegalOrphanException | NonexistentEntityException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -419,13 +515,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean validarUsuario(String identificacion, String contrasena) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean valido = false;
         UsuarioJpaController controller = new UsuarioJpaController(emf);
         Entities.Usuario findUsuario = controller.findUsuario(identificacion);
         if (findUsuario.getPsw().equalsIgnoreCase(this.encriptar(contrasena))) {
             valido = true;
         }
-
+        emf.close();
         return valido;
     }
 
@@ -440,6 +537,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean cambiarClave(String nueva, String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         try {
 
@@ -454,6 +552,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
+        emf.close();
         return hecho;
     }
 
@@ -469,6 +568,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<BuscarUsuario> buscarEmpleado(String parametro, String valor) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
         Query qNombre = em.createNamedQuery("Usuario.findByNombre");
         Query qId = em.createNamedQuery("Usuario.findById");
@@ -486,6 +586,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 lista.add(u.UsuarioToBuscarUsuario(u));
             }
         }
+        emf.close();
         return lista;
     }
 
@@ -501,8 +602,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean verificarClave(String anterior, String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         UsuarioJpaController us = new UsuarioJpaController(emf);
         Entities.Usuario findUsuario = us.findUsuario(id);
+        emf.close();
         return findUsuario.getPsw().equalsIgnoreCase(this.encriptar(anterior));
     }
 
@@ -522,6 +625,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     @Override
     public boolean crearUsuario(String identificacion, String nombre,
             String correo, String psw, String area, String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean creado = false;
         UsuarioJpaController contr = new UsuarioJpaController(emf);
         Entities.Usuario nuevo = new Entities.Usuario(identificacion, this.encriptar(psw), nombre, correo, area, contr.findUsuario(id));
@@ -531,6 +635,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
+        emf.close();
         return creado;
     }
 
@@ -544,6 +649,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public String getUsuario(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         UsuarioJpaController us = new UsuarioJpaController(emf);
         Entities.Usuario f = us.findUsuario(id);
         return f.getNombre();
@@ -556,13 +662,15 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      * Genera una lista con los usuarios actualmente registrados en el sistema.
      */
     @Override
-    public ArrayList<users> getUsuarios() {
+    public ArrayList<users> getUsuarios() throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         UsuarioJpaController contr = new UsuarioJpaController(emf);
         List<Entities.Usuario> lst = contr.findUsuarioEntities();
         ArrayList<users> lista = new ArrayList<>();
         for (Entities.Usuario usuario : lst) {
             lista.add(usuario.UsuarioToUsers(usuario));
         }
+        emf.close();
         return lista;
     }
 
@@ -576,6 +684,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean EliminarUsuario(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         UsuarioJpaController us = new UsuarioJpaController(emf);
         try {
@@ -589,6 +698,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         } catch (IllegalOrphanException | NonexistentEntityException ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
+        emf.close();
         return hecho;
     }
 
@@ -600,8 +710,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public users getDatosUsuario(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         UsuarioJpaController us = new UsuarioJpaController(emf);
         Entities.Usuario findUsuario = us.findUsuario(id);
+        emf.close();
         return findUsuario.UsuarioToUsers(findUsuario);
     }
 
@@ -613,6 +725,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean EditarUsuario(users u) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         UsuarioJpaController us = new UsuarioJpaController(emf);
         Entities.Usuario findUsuario = us.findUsuario(u.getId().toString());
@@ -627,6 +740,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
+        emf.close();
         return hecho;
     }
 
@@ -640,7 +754,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean AsignarPermisos(permisos p) throws RemoteException {
-        System.out.println("el id es: " + p.getId());
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean hecho = false;
         PermisosJpaController per = new PermisosJpaController(emf);
         Permisos lista = per.findPermisos(p.getId());
@@ -682,6 +796,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+        emf.close();
         return hecho;
     }
 
@@ -696,6 +811,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public permisos lista(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         PermisosJpaController per = new PermisosJpaController(emf);
         Permisos aux = per.findPermisos(id);
         permisos listaPermisos = new permisos();
@@ -710,6 +826,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                     (aux.getOcompra() == '1' ? 1 : 0), (aux.getBloqUs() == '1' ? 1 : 0), (aux.getGenfdc001() == '1' ? 1 : 0));
 
         }
+        emf.close();
         return listaPermisos;
     }
 
@@ -724,6 +841,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<ItemInventario> busquedaItem(String descripcion, String presentacion, String inv) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Item.busqueda");
         q.setParameter("descripcion", "%" + descripcion + "%");
@@ -731,12 +849,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         q.setParameter("inv", "%" + inv + "%");
         List<Item> resultList = q.getResultList();
         if (resultList == null) {
+            emf.close();
             return new ArrayList<>();
         } else {
             ArrayList<ItemInventario> lstRetorno = new ArrayList<>();
             for (Item i : resultList) {
                 lstRetorno.add(i.EntityToItem(i));
             }
+            emf.close();
             return lstRetorno;
         }
     }
@@ -752,6 +872,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public Integer crearSolicitud(solicitudPr sol, ArrayList<ItemInventario> itemsSolicitud) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean solCreada = false;
         boolean itemsEnviados = false;
         SolicitudPr s = new SolicitudPr();
@@ -773,7 +894,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 if (i.getCantidadSolicitada() <= 0) {
                     itemsEnviados = false;
                 } else {
-                    conItems.create(new Itxsol(new Double(Float.toString(i.getCantidadSolicitada())), numSol, new Item(i.getNumero())));
+                    conItems.create(new Itxsol(new Double(Float.toString(i.getCantidadSolicitada())), numSol, new Item(i.getNumero()), "NO", 0.0));
                 }
             }
             itemsEnviados = true;
@@ -785,6 +906,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+        emf.close();
         return (solCreada && itemsEnviados) ? numSol.intValue() : 0;
     }
 
@@ -796,6 +918,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<solicitudPr> getIdSolicitud(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("SolicitudPr.findByIdSolicitante");
         q.setParameter("idSolicitante", id);
@@ -808,6 +931,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             s.setArea(datosUsuario.getLab());
             retorno.add(s);
         }
+        emf.close();
         return retorno;
     }
 
@@ -819,12 +943,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public solicitudPr getSolicitud(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         SolicitudPrJpaController contr = new SolicitudPrJpaController(emf);
         SolicitudPr found = contr.findSolicitudPr(new Double(id));
         users datosUsuario = this.getDatosUsuario(found.getIdSolicitante());
         solicitudPr s = found.tosolicitudPr(found, found.getIdSolicitante());
         s.setNombreSolicitante(datosUsuario.getNombre());
         s.setArea(datosUsuario.getLab());
+        emf.close();
         return s;
     }
 
@@ -839,6 +965,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<ItemInventario> getItems_numSol(BigDecimal numSol) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ItemJpaController control = new ItemJpaController(emf);
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Itxsol.findByNumSol");
@@ -850,8 +977,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ItemInventario itm = findItem.EntityToItem(findItem);
             itm.setCantidadSolicitada(new Float(i.getCantidadsol()));
             retorno.add(itm);
-            System.out.println(i.getCinterno().getCinterno());
         }
+        emf.close();
         return retorno;
     }
 
@@ -863,6 +990,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<solicitudPr> numsSol() throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ArrayList<solicitudPr> solicitudes = new ArrayList<>();
         SolicitudPrJpaController contr = new SolicitudPrJpaController(emf);
         List<SolicitudPr> findSolicitudPrEntities = contr.findSolicitudPrEntities();
@@ -874,6 +1002,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             s.setArea(datosUsuario.getLab());
             solicitudes.add(s);
         }
+        emf.close();
         return solicitudes;
     }
 
@@ -888,6 +1017,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<solicitudPr> getSolicitudes(String revisado) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ArrayList<solicitudPr> solicitudes = new ArrayList<>();
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("SolicitudPr.findByRevisado");
@@ -900,6 +1030,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             sol.setArea(datosUsuario.getLab());
             solicitudes.add(sol);
         }
+        //emf.close();
         return solicitudes;
     }
 
@@ -913,6 +1044,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<ItemInventario> getItemsAprobado(BigDecimal numSol, String Aprobado) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ItemJpaController control = new ItemJpaController(emf);
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Itxsol.findByAprobado");
@@ -925,8 +1057,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ItemInventario itm = findItem.EntityToItem(findItem);
             itm.setCantidadSolicitada(new Float(i.getCantidadsol()));
             retorno.add(itm);
-            System.out.println(i.getCinterno().getCinterno());
         }
+        emf.close();
         return retorno;
     }
 
@@ -934,13 +1066,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      *
      * @param items
      * @param sol
+     * @param proveedor
      * @return
      * @throws RemoteException
      */
     @Override
-    public boolean aprobarItems(ArrayList<ItemInventario> items, solicitudPr sol, String proveedor) throws RemoteException {
+    public boolean aprobarItems(ArrayList<ItemInventario> items, solicitudPr sol, ArrayList<String> proveedor) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         boolean itxActualizado = false;
-        boolean solicitudActualizada = false;
         Double numsol = new Double(sol.getNum_sol().toString());
         try {
             SolicitudPrJpaController contr = new SolicitudPrJpaController(emf);
@@ -950,6 +1083,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             Query q = em.createNamedQuery("Itxsol.findSol_Item");
             q.setParameter("numSol", numsol);
             ItxsolJpaController con = new ItxsolJpaController(emf);
+            int indexProv=0;
             for (ItemInventario item : items) {
                 ItemJpaController itemJpaController = new ItemJpaController(emf);
                 Item findItem = itemJpaController.findItem(item.getNumero());
@@ -963,7 +1097,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 con.edit(found);
                 itxActualizado = true;
                 itemJpaController.edit(findItem);
-                this.asociarItem(item.getNumero(), proveedor, Float.toString(item.getPrecio()));
+                System.out.println(proveedor.get(indexProv));
+                System.out.println(proveedor.size());
+                this.asociarItem(item.getNumero(), proveedor.get(indexProv), Float.toString(item.getPrecio()));
+                indexProv++;
             }
             q = em.createNamedQuery("Itxsol.findByNumSol");
             q.setParameter("numSol", numsol);
@@ -971,9 +1108,86 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             if (itxActualizado && resultList.size() == items.size()) {
                 solicitud.setRevisado("SI");
                 contr.edit(solicitud);
-                solicitudActualizada = true;
             }
 
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        emf.close();
+        return itxActualizado;
+    }
+
+    /**
+     *
+     * @param i
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public ArrayList<itemxproveedor> getProveedorAsociado(itemxproveedor i) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        String cinterno = i.getCinterno();
+        Double precio = new Double(Float.toString(i.getPrecio()));
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Ixp.findByCinterno_Precio");
+        q.setParameter("cinterno", cinterno);
+        q.setParameter("precio", precio);
+        List<Ixp> resultList = q.getResultList();
+        ArrayList<itemxproveedor> retorno = new ArrayList<>();
+        if (!resultList.isEmpty()) {
+            for (Ixp ixp : resultList) {
+                proveedor datosProveedor = this.getDatosProveedor(ixp.getNit());
+                retorno.add(new itemxproveedor(datosProveedor.getNombre(), new Float(ixp.getPrecio()), ixp.getCinterno()));
+            }
+        }
+        emf.close();
+        return retorno;
+
+    }
+
+    @Override
+    public boolean desaprobarItems(ArrayList<ItemInventario> itemsSolicitud, solicitudPr sol, String proveedor) throws RemoteException {
+        boolean itxActualizado = false;
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        ArrayList<ItemInventario> itemsAprobado = this.getItemsAprobado(sol.getNum_sol(), "SI");
+        ArrayList<ItemInventario> itemsAEditar = new ArrayList<>();
+        for (ItemInventario i : itemsSolicitud) {
+            for (ItemInventario j : itemsAprobado) {
+                if (i.getNumero().equalsIgnoreCase(j.getNumero())) {
+                    itemsAEditar.add(i);
+                }
+            }
+        }
+        try {
+            EntityManager em = emf.createEntityManager();
+            Query q = em.createNamedQuery("Itxsol.findSol_Item");
+            q.setParameter("numSol", sol.getNum_sol());
+            ItxsolJpaController con = new ItxsolJpaController(emf);
+            for (ItemInventario item : itemsAEditar) {
+                ItemJpaController itemJpaController = new ItemJpaController(emf);
+                Item findItem = itemJpaController.findItem(item.getNumero());
+                findItem.setPrecio(0.0);
+                q.setParameter("cinterno", findItem);
+                List<Itxsol> resultList = q.getResultList();
+                Itxsol get = resultList.get(0);
+                Itxsol found = con.findItxsol(get.getId());
+                found.setAprobado("NO");
+                found.setCantidadaprobada(0.0);
+
+                con.edit(found);
+
+                itxActualizado = true;
+                itemJpaController.edit(findItem);
+                this.desasociarItem(item.getNumero(), proveedor, Float.toString(item.getPrecio()));
+            }
+            ArrayList<ItemInventario> listado = this.getItemsAprobado(sol.getNum_sol(), "");
+            if (listado.size() == itemsSolicitud.size()) //Desaprobar todos
+            {
+                SolicitudPrJpaController s = new SolicitudPrJpaController(emf);
+                SolicitudPr found = s.findSolicitudPr(new Double(sol.getNum_sol().toString()));
+                found.setRevisado("NO");
+                s.edit(found);
+            }
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -991,41 +1205,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public datosFormatos getDatos(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         DatosformatosJpaController datos = new DatosformatosJpaController(emf);
         Datosformatos found = datos.findDatosformatos(new Integer(id));
+        emf.close();
         return new datosFormatos(found.getRevision(), found.getFechaactualizacion(), found.getTitulo());
-    }
-
-    /**
-     *
-     * @param cinterno
-     * @param NIT
-     * @param precio
-     * @return
-     * @throws RemoteException
-     *
-     * Asocia un ítem a un proveedor
-     */
-    @Override
-    public boolean asociarItem(String cinterno, String NIT, String precio) throws RemoteException {
-        boolean hecho = false;
-        try {
-            IxpJpaController ixpCo = new IxpJpaController(emf);
-            Ixp findIxp = ixpCo.findIxp(new IxpPK(NIT, cinterno));
-            Ixp itm = new Ixp(new IxpPK(NIT, cinterno));
-            itm.setItem(new Item(cinterno));
-            itm.setProveedor(new Proveedor(NIT));
-            itm.setPrecio(new Double(precio));
-            if (findIxp == null) {
-                ixpCo.create(itm);
-            } else {
-                ixpCo.edit(itm);
-            }
-            hecho = true;
-        } catch (Exception ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return hecho;
     }
 
     /**
@@ -1038,6 +1222,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<ItemInventario> itemxProv(String nit) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1091,6 +1276,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<ItemInventario> itemxProv(String nit, String cinterno) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1145,6 +1331,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public solicitudPr getSolicitud_NumSol(BigDecimal numSol) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1248,6 +1435,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean generarCotizacion(String idAO, String proveedorNit, String codigo, String lab, BigDecimal numSol, float precio) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1303,6 +1491,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean RevisarSolicitud(String id, BigDecimal numSol, String ope) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         String statement;
@@ -1351,6 +1540,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<cotizaciones> getCotizaciones(String parametro) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         PreparedStatement ps = null;
         ResultSet rs = null;
         Connection con = null;
@@ -1421,6 +1611,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean aprobar(aprobacion ap, String par) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         boolean validacion = false;
         PreparedStatement ps = null;
@@ -1470,6 +1661,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean actCot(aprobacion ap, String parametro) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         boolean validacion = false;
         PreparedStatement ps = null;
@@ -1628,6 +1820,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public void crearOrdenCompra(String idAo) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1670,6 +1863,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public BigDecimal OrdenValida(String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1718,6 +1912,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public File imprimirInventario(String ruta) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd__HH_mm_ss");
         java.util.Date date = new java.util.Date();
 
@@ -1829,6 +2024,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean itemsxorden(BigDecimal orden, String proveedor, ArrayList<itemsOrdenCompra> pedido, String Obs) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1878,6 +2074,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public void actualizarCotEnOrden(ArrayList<itemsOrdenCompra> pedido) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1921,6 +2118,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean realizarDescargo(descargo d) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -1969,6 +2167,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean updateCantidad(String cinterno, float cantidad) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2014,6 +2213,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public boolean recibirPedido(BigDecimal numOrden, String idRec, ArrayList<itemRecep> articulos) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2085,6 +2285,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ItemInventario datosCompletosItem(String cinterno) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2130,6 +2331,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public recepcionProd getDatosRec(BigDecimal numorden, String id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2183,6 +2385,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<informeDescargos> generarInforme(String mes) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2285,6 +2488,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     @Override
     public float getCantAprobada(cotizaciones c) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2395,6 +2599,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      */
     @Override
     public ArrayList<informeDescargos> generarInformePorLab(String mes) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2444,6 +2649,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     @Override
     public ArrayList<informeDescargos> generarInformePorRA(String area, BigDecimal id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2488,6 +2694,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     @Override
     public fdc_001 datosGenerales(BigDecimal numSol, BigDecimal numCot) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2539,6 +2746,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     //Metodos del usuario
     @Override
     public ArrayList<ItemInventario> itemInventario(BigDecimal id) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         String sector = null;
         Connection con = null;
         PreparedStatement ps = null;
@@ -2607,6 +2815,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     @Override
     public ArrayList<itemxproveedor> getItemxproveedor(String inv, String codigo) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
@@ -2685,6 +2894,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     @Override
     public ArrayList<itemsOrdenCompra> pedidoOrdenCompra(String proveedor) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;

@@ -61,8 +61,6 @@ public class Item implements Serializable {
     private String ccalidad;
     @Column(name = "cesp")
     private String cesp;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "item")
-    private List<Ixp> ixpList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "cinterno")
     private List<Descargo> descargoList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "cinterno")
@@ -158,15 +156,6 @@ public class Item implements Serializable {
 
     public void setCesp(String cesp) {
         this.cesp = cesp;
-    }
-
-    @XmlTransient
-    public List<Ixp> getIxpList() {
-        return ixpList;
-    }
-
-    public void setIxpList(List<Ixp> ixpList) {
-        this.ixpList = ixpList;
     }
 
     @XmlTransient

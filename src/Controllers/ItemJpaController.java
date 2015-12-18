@@ -13,10 +13,9 @@ import javax.persistence.Query;
 import javax.persistence.EntityNotFoundException;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
-import Entities.Ixp;
+import Entities.Descargo;
 import java.util.ArrayList;
 import java.util.List;
-import Entities.Descargo;
 import Entities.Itxsol;
 import Entities.Aprobados;
 import Entities.Recepcion;
@@ -42,9 +41,6 @@ public class ItemJpaController implements Serializable {
     }
 
     public void create(Item item) throws PreexistingEntityException, Exception {
-        if (item.getIxpList() == null) {
-            item.setIxpList(new ArrayList<Ixp>());
-        }
         if (item.getDescargoList() == null) {
             item.setDescargoList(new ArrayList<Descargo>());
         }
@@ -67,12 +63,6 @@ public class ItemJpaController implements Serializable {
         try {
             em = getEntityManager();
             em.getTransaction().begin();
-            List<Ixp> attachedIxpList = new ArrayList<Ixp>();
-            for (Ixp ixpListIxpToAttach : item.getIxpList()) {
-                ixpListIxpToAttach = em.getReference(ixpListIxpToAttach.getClass(), ixpListIxpToAttach.getIxpPK());
-                attachedIxpList.add(ixpListIxpToAttach);
-            }
-            item.setIxpList(attachedIxpList);
             List<Descargo> attachedDescargoList = new ArrayList<Descargo>();
             for (Descargo descargoListDescargoToAttach : item.getDescargoList()) {
                 descargoListDescargoToAttach = em.getReference(descargoListDescargoToAttach.getClass(), descargoListDescargoToAttach.getId());
@@ -110,15 +100,6 @@ public class ItemJpaController implements Serializable {
             }
             item.setCotizacionProdList(attachedCotizacionProdList);
             em.persist(item);
-            for (Ixp ixpListIxp : item.getIxpList()) {
-                Item oldItemOfIxpListIxp = ixpListIxp.getItem();
-                ixpListIxp.setItem(item);
-                ixpListIxp = em.merge(ixpListIxp);
-                if (oldItemOfIxpListIxp != null) {
-                    oldItemOfIxpListIxp.getIxpList().remove(ixpListIxp);
-                    oldItemOfIxpListIxp = em.merge(oldItemOfIxpListIxp);
-                }
-            }
             for (Descargo descargoListDescargo : item.getDescargoList()) {
                 Item oldCinternoOfDescargoListDescargo = descargoListDescargo.getCinterno();
                 descargoListDescargo.setCinterno(item);
@@ -192,8 +173,6 @@ public class ItemJpaController implements Serializable {
             em = getEntityManager();
             em.getTransaction().begin();
             Item persistentItem = em.find(Item.class, item.getCinterno());
-            List<Ixp> ixpListOld = persistentItem.getIxpList();
-            List<Ixp> ixpListNew = item.getIxpList();
             List<Descargo> descargoListOld = persistentItem.getDescargoList();
             List<Descargo> descargoListNew = item.getDescargoList();
             List<Itxsol> itxsolListOld = persistentItem.getItxsolList();
@@ -207,14 +186,6 @@ public class ItemJpaController implements Serializable {
             List<CotizacionProd> cotizacionProdListOld = persistentItem.getCotizacionProdList();
             List<CotizacionProd> cotizacionProdListNew = item.getCotizacionProdList();
             List<String> illegalOrphanMessages = null;
-            for (Ixp ixpListOldIxp : ixpListOld) {
-                if (!ixpListNew.contains(ixpListOldIxp)) {
-                    if (illegalOrphanMessages == null) {
-                        illegalOrphanMessages = new ArrayList<String>();
-                    }
-                    illegalOrphanMessages.add("You must retain Ixp " + ixpListOldIxp + " since its item field is not nullable.");
-                }
-            }
             for (Descargo descargoListOldDescargo : descargoListOld) {
                 if (!descargoListNew.contains(descargoListOldDescargo)) {
                     if (illegalOrphanMessages == null) {
@@ -266,13 +237,6 @@ public class ItemJpaController implements Serializable {
             if (illegalOrphanMessages != null) {
                 throw new IllegalOrphanException(illegalOrphanMessages);
             }
-            List<Ixp> attachedIxpListNew = new ArrayList<Ixp>();
-            for (Ixp ixpListNewIxpToAttach : ixpListNew) {
-                ixpListNewIxpToAttach = em.getReference(ixpListNewIxpToAttach.getClass(), ixpListNewIxpToAttach.getIxpPK());
-                attachedIxpListNew.add(ixpListNewIxpToAttach);
-            }
-            ixpListNew = attachedIxpListNew;
-            item.setIxpList(ixpListNew);
             List<Descargo> attachedDescargoListNew = new ArrayList<Descargo>();
             for (Descargo descargoListNewDescargoToAttach : descargoListNew) {
                 descargoListNewDescargoToAttach = em.getReference(descargoListNewDescargoToAttach.getClass(), descargoListNewDescargoToAttach.getId());
@@ -316,17 +280,6 @@ public class ItemJpaController implements Serializable {
             cotizacionProdListNew = attachedCotizacionProdListNew;
             item.setCotizacionProdList(cotizacionProdListNew);
             item = em.merge(item);
-            for (Ixp ixpListNewIxp : ixpListNew) {
-                if (!ixpListOld.contains(ixpListNewIxp)) {
-                    Item oldItemOfIxpListNewIxp = ixpListNewIxp.getItem();
-                    ixpListNewIxp.setItem(item);
-                    ixpListNewIxp = em.merge(ixpListNewIxp);
-                    if (oldItemOfIxpListNewIxp != null && !oldItemOfIxpListNewIxp.equals(item)) {
-                        oldItemOfIxpListNewIxp.getIxpList().remove(ixpListNewIxp);
-                        oldItemOfIxpListNewIxp = em.merge(oldItemOfIxpListNewIxp);
-                    }
-                }
-            }
             for (Descargo descargoListNewDescargo : descargoListNew) {
                 if (!descargoListOld.contains(descargoListNewDescargo)) {
                     Item oldCinternoOfDescargoListNewDescargo = descargoListNewDescargo.getCinterno();
@@ -398,7 +351,6 @@ public class ItemJpaController implements Serializable {
             String msg = ex.getLocalizedMessage();
             if (msg == null || msg.length() == 0) {
                 String id = item.getCinterno();
-                System.out.println(id);
                 if (findItem(id) == null) {
                     throw new NonexistentEntityException("The item with id " + id + " no longer exists.");
                 }
@@ -424,13 +376,6 @@ public class ItemJpaController implements Serializable {
                 throw new NonexistentEntityException("The item with id " + id + " no longer exists.", enfe);
             }
             List<String> illegalOrphanMessages = null;
-            List<Ixp> ixpListOrphanCheck = item.getIxpList();
-            for (Ixp ixpListOrphanCheckIxp : ixpListOrphanCheck) {
-                if (illegalOrphanMessages == null) {
-                    illegalOrphanMessages = new ArrayList<String>();
-                }
-                illegalOrphanMessages.add("This Item (" + item + ") cannot be destroyed since the Ixp " + ixpListOrphanCheckIxp + " in its ixpList field has a non-nullable item field.");
-            }
             List<Descargo> descargoListOrphanCheck = item.getDescargoList();
             for (Descargo descargoListOrphanCheckDescargo : descargoListOrphanCheck) {
                 if (illegalOrphanMessages == null) {

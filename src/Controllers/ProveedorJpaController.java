@@ -13,10 +13,9 @@ import javax.persistence.Query;
 import javax.persistence.EntityNotFoundException;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
-import Entities.Ixp;
+import Entities.Itmxorden;
 import java.util.ArrayList;
 import java.util.List;
-import Entities.Itmxorden;
 import Entities.CotizacionProd;
 import Entities.Proveedor;
 import javax.persistence.EntityManager;
@@ -38,9 +37,6 @@ public class ProveedorJpaController implements Serializable {
     }
 
     public void create(Proveedor proveedor) throws PreexistingEntityException, Exception {
-        if (proveedor.getIxpList() == null) {
-            proveedor.setIxpList(new ArrayList<Ixp>());
-        }
         if (proveedor.getItmxordenList() == null) {
             proveedor.setItmxordenList(new ArrayList<Itmxorden>());
         }
@@ -51,12 +47,6 @@ public class ProveedorJpaController implements Serializable {
         try {
             em = getEntityManager();
             em.getTransaction().begin();
-            List<Ixp> attachedIxpList = new ArrayList<Ixp>();
-            for (Ixp ixpListIxpToAttach : proveedor.getIxpList()) {
-                ixpListIxpToAttach = em.getReference(ixpListIxpToAttach.getClass(), ixpListIxpToAttach.getIxpPK());
-                attachedIxpList.add(ixpListIxpToAttach);
-            }
-            proveedor.setIxpList(attachedIxpList);
             List<Itmxorden> attachedItmxordenList = new ArrayList<Itmxorden>();
             for (Itmxorden itmxordenListItmxordenToAttach : proveedor.getItmxordenList()) {
                 itmxordenListItmxordenToAttach = em.getReference(itmxordenListItmxordenToAttach.getClass(), itmxordenListItmxordenToAttach.getItmxordenPK());
@@ -70,15 +60,6 @@ public class ProveedorJpaController implements Serializable {
             }
             proveedor.setCotizacionProdList(attachedCotizacionProdList);
             em.persist(proveedor);
-            for (Ixp ixpListIxp : proveedor.getIxpList()) {
-                Proveedor oldProveedorOfIxpListIxp = ixpListIxp.getProveedor();
-                ixpListIxp.setProveedor(proveedor);
-                ixpListIxp = em.merge(ixpListIxp);
-                if (oldProveedorOfIxpListIxp != null) {
-                    oldProveedorOfIxpListIxp.getIxpList().remove(ixpListIxp);
-                    oldProveedorOfIxpListIxp = em.merge(oldProveedorOfIxpListIxp);
-                }
-            }
             for (Itmxorden itmxordenListItmxorden : proveedor.getItmxordenList()) {
                 Proveedor oldProveedorNitOfItmxordenListItmxorden = itmxordenListItmxorden.getProveedorNit();
                 itmxordenListItmxorden.setProveedorNit(proveedor);
@@ -116,21 +97,11 @@ public class ProveedorJpaController implements Serializable {
             em = getEntityManager();
             em.getTransaction().begin();
             Proveedor persistentProveedor = em.find(Proveedor.class, proveedor.getNit());
-            List<Ixp> ixpListOld = persistentProveedor.getIxpList();
-            List<Ixp> ixpListNew = proveedor.getIxpList();
             List<Itmxorden> itmxordenListOld = persistentProveedor.getItmxordenList();
             List<Itmxorden> itmxordenListNew = proveedor.getItmxordenList();
             List<CotizacionProd> cotizacionProdListOld = persistentProveedor.getCotizacionProdList();
             List<CotizacionProd> cotizacionProdListNew = proveedor.getCotizacionProdList();
             List<String> illegalOrphanMessages = null;
-            for (Ixp ixpListOldIxp : ixpListOld) {
-                if (!ixpListNew.contains(ixpListOldIxp)) {
-                    if (illegalOrphanMessages == null) {
-                        illegalOrphanMessages = new ArrayList<String>();
-                    }
-                    illegalOrphanMessages.add("You must retain Ixp " + ixpListOldIxp + " since its proveedor field is not nullable.");
-                }
-            }
             for (Itmxorden itmxordenListOldItmxorden : itmxordenListOld) {
                 if (!itmxordenListNew.contains(itmxordenListOldItmxorden)) {
                     if (illegalOrphanMessages == null) {
@@ -150,13 +121,6 @@ public class ProveedorJpaController implements Serializable {
             if (illegalOrphanMessages != null) {
                 throw new IllegalOrphanException(illegalOrphanMessages);
             }
-            List<Ixp> attachedIxpListNew = new ArrayList<Ixp>();
-            for (Ixp ixpListNewIxpToAttach : ixpListNew) {
-                ixpListNewIxpToAttach = em.getReference(ixpListNewIxpToAttach.getClass(), ixpListNewIxpToAttach.getIxpPK());
-                attachedIxpListNew.add(ixpListNewIxpToAttach);
-            }
-            ixpListNew = attachedIxpListNew;
-            proveedor.setIxpList(ixpListNew);
             List<Itmxorden> attachedItmxordenListNew = new ArrayList<Itmxorden>();
             for (Itmxorden itmxordenListNewItmxordenToAttach : itmxordenListNew) {
                 itmxordenListNewItmxordenToAttach = em.getReference(itmxordenListNewItmxordenToAttach.getClass(), itmxordenListNewItmxordenToAttach.getItmxordenPK());
@@ -172,17 +136,6 @@ public class ProveedorJpaController implements Serializable {
             cotizacionProdListNew = attachedCotizacionProdListNew;
             proveedor.setCotizacionProdList(cotizacionProdListNew);
             proveedor = em.merge(proveedor);
-            for (Ixp ixpListNewIxp : ixpListNew) {
-                if (!ixpListOld.contains(ixpListNewIxp)) {
-                    Proveedor oldProveedorOfIxpListNewIxp = ixpListNewIxp.getProveedor();
-                    ixpListNewIxp.setProveedor(proveedor);
-                    ixpListNewIxp = em.merge(ixpListNewIxp);
-                    if (oldProveedorOfIxpListNewIxp != null && !oldProveedorOfIxpListNewIxp.equals(proveedor)) {
-                        oldProveedorOfIxpListNewIxp.getIxpList().remove(ixpListNewIxp);
-                        oldProveedorOfIxpListNewIxp = em.merge(oldProveedorOfIxpListNewIxp);
-                    }
-                }
-            }
             for (Itmxorden itmxordenListNewItmxorden : itmxordenListNew) {
                 if (!itmxordenListOld.contains(itmxordenListNewItmxorden)) {
                     Proveedor oldProveedorNitOfItmxordenListNewItmxorden = itmxordenListNewItmxorden.getProveedorNit();
@@ -235,13 +188,6 @@ public class ProveedorJpaController implements Serializable {
                 throw new NonexistentEntityException("The proveedor with id " + id + " no longer exists.", enfe);
             }
             List<String> illegalOrphanMessages = null;
-            List<Ixp> ixpListOrphanCheck = proveedor.getIxpList();
-            for (Ixp ixpListOrphanCheckIxp : ixpListOrphanCheck) {
-                if (illegalOrphanMessages == null) {
-                    illegalOrphanMessages = new ArrayList<String>();
-                }
-                illegalOrphanMessages.add("This Proveedor (" + proveedor + ") cannot be destroyed since the Ixp " + ixpListOrphanCheckIxp + " in its ixpList field has a non-nullable proveedor field.");
-            }
             List<Itmxorden> itmxordenListOrphanCheck = proveedor.getItmxordenList();
             for (Itmxorden itmxordenListOrphanCheckItmxorden : itmxordenListOrphanCheck) {
                 if (illegalOrphanMessages == null) {
