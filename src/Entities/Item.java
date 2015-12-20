@@ -66,14 +66,9 @@ public class Item implements Serializable {
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "cinterno")
     private List<Itxsol> itxsolList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "cinterno")
-    private List<Aprobados> aprobadosList;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "cinterno")
     private List<Recepcion> recepcionList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "itemCinterno")
     private List<Itmxorden> itmxordenList;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "cinterno")
-    private List<CotizacionProd> cotizacionProdList;
-
     public Item() {
     }
 
@@ -177,15 +172,6 @@ public class Item implements Serializable {
     }
 
     @XmlTransient
-    public List<Aprobados> getAprobadosList() {
-        return aprobadosList;
-    }
-
-    public void setAprobadosList(List<Aprobados> aprobadosList) {
-        this.aprobadosList = aprobadosList;
-    }
-
-    @XmlTransient
     public List<Recepcion> getRecepcionList() {
         return recepcionList;
     }
@@ -201,15 +187,6 @@ public class Item implements Serializable {
 
     public void setItmxordenList(List<Itmxorden> itmxordenList) {
         this.itmxordenList = itmxordenList;
-    }
-
-    @XmlTransient
-    public List<CotizacionProd> getCotizacionProdList() {
-        return cotizacionProdList;
-    }
-
-    public void setCotizacionProdList(List<CotizacionProd> cotizacionProdList) {
-        this.cotizacionProdList = cotizacionProdList;
     }
 
     @Override

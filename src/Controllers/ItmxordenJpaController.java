@@ -6,7 +6,6 @@
 package Controllers;
 
 import Controllers.exceptions.NonexistentEntityException;
-import Controllers.exceptions.PreexistingEntityException;
 import java.io.Serializable;
 import javax.persistence.Query;
 import javax.persistence.EntityNotFoundException;
@@ -14,7 +13,6 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import Entities.Item;
 import Entities.Itmxorden;
-import Entities.ItmxordenPK;
 import Entities.Proveedor;
 import java.util.List;
 import javax.persistence.EntityManager;
@@ -35,10 +33,7 @@ public class ItmxordenJpaController implements Serializable {
         return emf.createEntityManager();
     }
 
-    public void create(Itmxorden itmxorden) throws PreexistingEntityException, Exception {
-        if (itmxorden.getItmxordenPK() == null) {
-            itmxorden.setItmxordenPK(new ItmxordenPK());
-        }
+    public void create(Itmxorden itmxorden) {
         EntityManager em = null;
         try {
             em = getEntityManager();
@@ -63,11 +58,6 @@ public class ItmxordenJpaController implements Serializable {
                 proveedorNit = em.merge(proveedorNit);
             }
             em.getTransaction().commit();
-        } catch (Exception ex) {
-            if (findItmxorden(itmxorden.getItmxordenPK()) != null) {
-                throw new PreexistingEntityException("Itmxorden " + itmxorden + " already exists.", ex);
-            }
-            throw ex;
         } finally {
             if (em != null) {
                 em.close();
@@ -80,7 +70,7 @@ public class ItmxordenJpaController implements Serializable {
         try {
             em = getEntityManager();
             em.getTransaction().begin();
-            Itmxorden persistentItmxorden = em.find(Itmxorden.class, itmxorden.getItmxordenPK());
+            Itmxorden persistentItmxorden = em.find(Itmxorden.class, itmxorden.getIdOCompra());
             Item itemCinternoOld = persistentItmxorden.getItemCinterno();
             Item itemCinternoNew = itmxorden.getItemCinterno();
             Proveedor proveedorNitOld = persistentItmxorden.getProveedorNit();
@@ -114,7 +104,7 @@ public class ItmxordenJpaController implements Serializable {
         } catch (Exception ex) {
             String msg = ex.getLocalizedMessage();
             if (msg == null || msg.length() == 0) {
-                ItmxordenPK id = itmxorden.getItmxordenPK();
+                Integer id = itmxorden.getIdOCompra();
                 if (findItmxorden(id) == null) {
                     throw new NonexistentEntityException("The itmxorden with id " + id + " no longer exists.");
                 }
@@ -127,7 +117,7 @@ public class ItmxordenJpaController implements Serializable {
         }
     }
 
-    public void destroy(ItmxordenPK id) throws NonexistentEntityException {
+    public void destroy(Integer id) throws NonexistentEntityException {
         EntityManager em = null;
         try {
             em = getEntityManager();
@@ -135,7 +125,7 @@ public class ItmxordenJpaController implements Serializable {
             Itmxorden itmxorden;
             try {
                 itmxorden = em.getReference(Itmxorden.class, id);
-                itmxorden.getItmxordenPK();
+                itmxorden.getIdOCompra();
             } catch (EntityNotFoundException enfe) {
                 throw new NonexistentEntityException("The itmxorden with id " + id + " no longer exists.", enfe);
             }
@@ -182,7 +172,7 @@ public class ItmxordenJpaController implements Serializable {
         }
     }
 
-    public Itmxorden findItmxorden(ItmxordenPK id) {
+    public Itmxorden findItmxorden(Integer id) {
         EntityManager em = getEntityManager();
         try {
             return em.find(Itmxorden.class, id);

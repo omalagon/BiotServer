@@ -64,8 +64,6 @@ public class SolicitudPr implements Serializable {
     private String revisado;
     @Column(name = "id_ao")
     private String idAo;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "numSol")
-    private List<CotizacionProd> cotizacionProdList;
 
     public SolicitudPr() {
     }
@@ -125,15 +123,6 @@ public class SolicitudPr implements Serializable {
 
     public void setIdAo(String idAo) {
         this.idAo = idAo;
-    }
-
-    @XmlTransient
-    public List<CotizacionProd> getCotizacionProdList() {
-        return cotizacionProdList;
-    }
-
-    public void setCotizacionProdList(List<CotizacionProd> cotizacionProdList) {
-        this.cotizacionProdList = cotizacionProdList;
     }
 
     @Override

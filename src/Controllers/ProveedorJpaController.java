@@ -14,10 +14,9 @@ import javax.persistence.EntityNotFoundException;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import Entities.Itmxorden;
+import Entities.Proveedor;
 import java.util.ArrayList;
 import java.util.List;
-import Entities.CotizacionProd;
-import Entities.Proveedor;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 
@@ -40,25 +39,16 @@ public class ProveedorJpaController implements Serializable {
         if (proveedor.getItmxordenList() == null) {
             proveedor.setItmxordenList(new ArrayList<Itmxorden>());
         }
-        if (proveedor.getCotizacionProdList() == null) {
-            proveedor.setCotizacionProdList(new ArrayList<CotizacionProd>());
-        }
         EntityManager em = null;
         try {
             em = getEntityManager();
             em.getTransaction().begin();
             List<Itmxorden> attachedItmxordenList = new ArrayList<Itmxorden>();
             for (Itmxorden itmxordenListItmxordenToAttach : proveedor.getItmxordenList()) {
-                itmxordenListItmxordenToAttach = em.getReference(itmxordenListItmxordenToAttach.getClass(), itmxordenListItmxordenToAttach.getItmxordenPK());
+                itmxordenListItmxordenToAttach = em.getReference(itmxordenListItmxordenToAttach.getClass(), itmxordenListItmxordenToAttach.getIdOCompra());
                 attachedItmxordenList.add(itmxordenListItmxordenToAttach);
             }
             proveedor.setItmxordenList(attachedItmxordenList);
-            List<CotizacionProd> attachedCotizacionProdList = new ArrayList<CotizacionProd>();
-            for (CotizacionProd cotizacionProdListCotizacionProdToAttach : proveedor.getCotizacionProdList()) {
-                cotizacionProdListCotizacionProdToAttach = em.getReference(cotizacionProdListCotizacionProdToAttach.getClass(), cotizacionProdListCotizacionProdToAttach.getId());
-                attachedCotizacionProdList.add(cotizacionProdListCotizacionProdToAttach);
-            }
-            proveedor.setCotizacionProdList(attachedCotizacionProdList);
             em.persist(proveedor);
             for (Itmxorden itmxordenListItmxorden : proveedor.getItmxordenList()) {
                 Proveedor oldProveedorNitOfItmxordenListItmxorden = itmxordenListItmxorden.getProveedorNit();
@@ -67,15 +57,6 @@ public class ProveedorJpaController implements Serializable {
                 if (oldProveedorNitOfItmxordenListItmxorden != null) {
                     oldProveedorNitOfItmxordenListItmxorden.getItmxordenList().remove(itmxordenListItmxorden);
                     oldProveedorNitOfItmxordenListItmxorden = em.merge(oldProveedorNitOfItmxordenListItmxorden);
-                }
-            }
-            for (CotizacionProd cotizacionProdListCotizacionProd : proveedor.getCotizacionProdList()) {
-                Proveedor oldNitOfCotizacionProdListCotizacionProd = cotizacionProdListCotizacionProd.getNit();
-                cotizacionProdListCotizacionProd.setNit(proveedor);
-                cotizacionProdListCotizacionProd = em.merge(cotizacionProdListCotizacionProd);
-                if (oldNitOfCotizacionProdListCotizacionProd != null) {
-                    oldNitOfCotizacionProdListCotizacionProd.getCotizacionProdList().remove(cotizacionProdListCotizacionProd);
-                    oldNitOfCotizacionProdListCotizacionProd = em.merge(oldNitOfCotizacionProdListCotizacionProd);
                 }
             }
             em.getTransaction().commit();
@@ -99,8 +80,6 @@ public class ProveedorJpaController implements Serializable {
             Proveedor persistentProveedor = em.find(Proveedor.class, proveedor.getNit());
             List<Itmxorden> itmxordenListOld = persistentProveedor.getItmxordenList();
             List<Itmxorden> itmxordenListNew = proveedor.getItmxordenList();
-            List<CotizacionProd> cotizacionProdListOld = persistentProveedor.getCotizacionProdList();
-            List<CotizacionProd> cotizacionProdListNew = proveedor.getCotizacionProdList();
             List<String> illegalOrphanMessages = null;
             for (Itmxorden itmxordenListOldItmxorden : itmxordenListOld) {
                 if (!itmxordenListNew.contains(itmxordenListOldItmxorden)) {
@@ -110,31 +89,16 @@ public class ProveedorJpaController implements Serializable {
                     illegalOrphanMessages.add("You must retain Itmxorden " + itmxordenListOldItmxorden + " since its proveedorNit field is not nullable.");
                 }
             }
-            for (CotizacionProd cotizacionProdListOldCotizacionProd : cotizacionProdListOld) {
-                if (!cotizacionProdListNew.contains(cotizacionProdListOldCotizacionProd)) {
-                    if (illegalOrphanMessages == null) {
-                        illegalOrphanMessages = new ArrayList<String>();
-                    }
-                    illegalOrphanMessages.add("You must retain CotizacionProd " + cotizacionProdListOldCotizacionProd + " since its nit field is not nullable.");
-                }
-            }
             if (illegalOrphanMessages != null) {
                 throw new IllegalOrphanException(illegalOrphanMessages);
             }
             List<Itmxorden> attachedItmxordenListNew = new ArrayList<Itmxorden>();
             for (Itmxorden itmxordenListNewItmxordenToAttach : itmxordenListNew) {
-                itmxordenListNewItmxordenToAttach = em.getReference(itmxordenListNewItmxordenToAttach.getClass(), itmxordenListNewItmxordenToAttach.getItmxordenPK());
+                itmxordenListNewItmxordenToAttach = em.getReference(itmxordenListNewItmxordenToAttach.getClass(), itmxordenListNewItmxordenToAttach.getIdOCompra());
                 attachedItmxordenListNew.add(itmxordenListNewItmxordenToAttach);
             }
             itmxordenListNew = attachedItmxordenListNew;
             proveedor.setItmxordenList(itmxordenListNew);
-            List<CotizacionProd> attachedCotizacionProdListNew = new ArrayList<CotizacionProd>();
-            for (CotizacionProd cotizacionProdListNewCotizacionProdToAttach : cotizacionProdListNew) {
-                cotizacionProdListNewCotizacionProdToAttach = em.getReference(cotizacionProdListNewCotizacionProdToAttach.getClass(), cotizacionProdListNewCotizacionProdToAttach.getId());
-                attachedCotizacionProdListNew.add(cotizacionProdListNewCotizacionProdToAttach);
-            }
-            cotizacionProdListNew = attachedCotizacionProdListNew;
-            proveedor.setCotizacionProdList(cotizacionProdListNew);
             proveedor = em.merge(proveedor);
             for (Itmxorden itmxordenListNewItmxorden : itmxordenListNew) {
                 if (!itmxordenListOld.contains(itmxordenListNewItmxorden)) {
@@ -144,17 +108,6 @@ public class ProveedorJpaController implements Serializable {
                     if (oldProveedorNitOfItmxordenListNewItmxorden != null && !oldProveedorNitOfItmxordenListNewItmxorden.equals(proveedor)) {
                         oldProveedorNitOfItmxordenListNewItmxorden.getItmxordenList().remove(itmxordenListNewItmxorden);
                         oldProveedorNitOfItmxordenListNewItmxorden = em.merge(oldProveedorNitOfItmxordenListNewItmxorden);
-                    }
-                }
-            }
-            for (CotizacionProd cotizacionProdListNewCotizacionProd : cotizacionProdListNew) {
-                if (!cotizacionProdListOld.contains(cotizacionProdListNewCotizacionProd)) {
-                    Proveedor oldNitOfCotizacionProdListNewCotizacionProd = cotizacionProdListNewCotizacionProd.getNit();
-                    cotizacionProdListNewCotizacionProd.setNit(proveedor);
-                    cotizacionProdListNewCotizacionProd = em.merge(cotizacionProdListNewCotizacionProd);
-                    if (oldNitOfCotizacionProdListNewCotizacionProd != null && !oldNitOfCotizacionProdListNewCotizacionProd.equals(proveedor)) {
-                        oldNitOfCotizacionProdListNewCotizacionProd.getCotizacionProdList().remove(cotizacionProdListNewCotizacionProd);
-                        oldNitOfCotizacionProdListNewCotizacionProd = em.merge(oldNitOfCotizacionProdListNewCotizacionProd);
                     }
                 }
             }
@@ -194,13 +147,6 @@ public class ProveedorJpaController implements Serializable {
                     illegalOrphanMessages = new ArrayList<String>();
                 }
                 illegalOrphanMessages.add("This Proveedor (" + proveedor + ") cannot be destroyed since the Itmxorden " + itmxordenListOrphanCheckItmxorden + " in its itmxordenList field has a non-nullable proveedorNit field.");
-            }
-            List<CotizacionProd> cotizacionProdListOrphanCheck = proveedor.getCotizacionProdList();
-            for (CotizacionProd cotizacionProdListOrphanCheckCotizacionProd : cotizacionProdListOrphanCheck) {
-                if (illegalOrphanMessages == null) {
-                    illegalOrphanMessages = new ArrayList<String>();
-                }
-                illegalOrphanMessages.add("This Proveedor (" + proveedor + ") cannot be destroyed since the CotizacionProd " + cotizacionProdListOrphanCheckCotizacionProd + " in its cotizacionProdList field has a non-nullable nit field.");
             }
             if (illegalOrphanMessages != null) {
                 throw new IllegalOrphanException(illegalOrphanMessages);

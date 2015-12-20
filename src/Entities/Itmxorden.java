@@ -6,9 +6,12 @@
 package Entities;
 
 import java.io.Serializable;
+import javax.persistence.Basic;
 import javax.persistence.Column;
-import javax.persistence.EmbeddedId;
 import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.NamedQueries;
@@ -25,17 +28,29 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Itmxorden.findAll", query = "SELECT i FROM Itmxorden i"),
-    @NamedQuery(name = "Itmxorden.findByObs", query = "SELECT i FROM Itmxorden i WHERE i.obs = :obs"),
-    @NamedQuery(name = "Itmxorden.findByNumorden", query = "SELECT i FROM Itmxorden i WHERE i.itmxordenPK.numorden = :numorden"),
-    @NamedQuery(name = "Itmxorden.findByCaprobada", query = "SELECT i FROM Itmxorden i WHERE i.itmxordenPK.caprobada = :caprobada"),
-    @NamedQuery(name = "Itmxorden.findByPrecioU", query = "SELECT i FROM Itmxorden i WHERE i.itmxordenPK.precioU = :precioU")})
+    @NamedQuery(name = "Itmxorden.findByNumorden", query = "SELECT i FROM Itmxorden i WHERE i.numorden = :numorden"),
+    @NamedQuery(name = "Itmxorden.findByNumorden_item", query = "SELECT i FROM Itmxorden i WHERE i.numorden = :numorden AND i.itemCinterno =:cinterno"),
+    @NamedQuery(name = "Itmxorden.findByCaprobada", query = "SELECT i FROM Itmxorden i WHERE i.caprobada = :caprobada"),
+    @NamedQuery(name = "Itmxorden.findByPrecioU", query = "SELECT i FROM Itmxorden i WHERE i.precioU = :precioU"),
+    @NamedQuery(name = "Itmxorden.findByAllParameters", query = "SELECT i FROM Itmxorden i WHERE i.proveedorNit =:nit AND i.caprobada = :caprobada AND i.precioU =:precio AND i.itemCinterno = :cinterno"),
+    @NamedQuery(name = "Itmxorden.findByIdOCompra", query = "SELECT i FROM Itmxorden i WHERE i.idOCompra = :idOCompra")})
 public class Itmxorden implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    @EmbeddedId
-    protected ItmxordenPK itmxordenPK;
-    @Column(name = "obs")
-    private String obs;
+    @Basic(optional = false)
+    @Column(name = "numorden")
+    private double numorden;
+    @Basic(optional = false)
+    @Column(name = "caprobada")
+    private double caprobada;
+    @Basic(optional = false)
+    @Column(name = "precio_u")
+    private double precioU;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Basic(optional = false)
+    @Column(name = "idOCompra")
+    private Integer idOCompra;
     @JoinColumn(name = "item_cinterno", referencedColumnName = "cinterno")
     @ManyToOne(optional = false)
     private Item itemCinterno;
@@ -46,28 +61,53 @@ public class Itmxorden implements Serializable {
     public Itmxorden() {
     }
 
-    public Itmxorden(ItmxordenPK itmxordenPK) {
-        this.itmxordenPK = itmxordenPK;
+    public Itmxorden(Integer idOCompra) {
+        this.idOCompra = idOCompra;
     }
 
+    public Itmxorden(Integer idOCompra, double numorden, double caprobada, double precioU) {
+        this.idOCompra = idOCompra;
+        this.numorden = numorden;
+        this.caprobada = caprobada;
+        this.precioU = precioU;
+    }
+    
     public Itmxorden(double numorden, double caprobada, double precioU) {
-        this.itmxordenPK = new ItmxordenPK(numorden, caprobada, precioU);
+        this.numorden = numorden;
+        this.caprobada = caprobada;
+        this.precioU = precioU;
     }
 
-    public ItmxordenPK getItmxordenPK() {
-        return itmxordenPK;
+    public double getNumorden() {
+        return numorden;
     }
 
-    public void setItmxordenPK(ItmxordenPK itmxordenPK) {
-        this.itmxordenPK = itmxordenPK;
+    public void setNumorden(double numorden) {
+        this.numorden = numorden;
     }
 
-    public String getObs() {
-        return obs;
+    public double getCaprobada() {
+        return caprobada;
     }
 
-    public void setObs(String obs) {
-        this.obs = obs;
+    public void setCaprobada(double caprobada) {
+        this.caprobada = caprobada;
+    }
+
+    public double getPrecioU() {
+        return precioU;
+    }
+
+    public void setPrecioU(double precioU) {
+        this.precioU = precioU;
+    }
+
+    public Integer getIdOCompra() {
+        return idOCompra;
+    }
+
+    public void setIdOCompra(Integer idOCompra) {
+        this.idOCompra = idOCompra;
     }
 
     public Item getItemCinterno() {
@@ -89,7 +129,7 @@ public class Itmxorden implements Serializable {
     @Override
     public int hashCode() {
         int hash = 0;
-        hash += (itmxordenPK != null ? itmxordenPK.hashCode() : 0);
+        hash += (idOCompra != null ? idOCompra.hashCode() : 0);
         return hash;
     }
 
@@ -100,7 +140,7 @@ public class Itmxorden implements Serializable {
             return false;
         }
         Itmxorden other = (Itmxorden) object;
-        if ((this.itmxordenPK == null && other.itmxordenPK != null) || (this.itmxordenPK != null && !this.itmxordenPK.equals(other.itmxordenPK))) {
+        if ((this.idOCompra == null && other.idOCompra != null) || (this.idOCompra != null && !this.idOCompra.equals(other.idOCompra))) {
             return false;
         }
         return true;
@@ -108,7 +148,7 @@ public class Itmxorden implements Serializable {
 
     @Override
     public String toString() {
-        return "Entities.Itmxorden[ itmxordenPK=" + itmxordenPK + " ]";
+        return "Entities.Itmxorden[ idOCompra=" + idOCompra + " ]";
     }
     
 }

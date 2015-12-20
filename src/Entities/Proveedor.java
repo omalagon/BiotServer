@@ -65,8 +65,6 @@ public class Proveedor implements Serializable {
     private String contacto;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "proveedorNit")
     private List<Itmxorden> itmxordenList;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "nit")
-    private List<CotizacionProd> cotizacionProdList;
 
     public Proveedor() {
     }
@@ -173,15 +171,6 @@ public class Proveedor implements Serializable {
 
     public void setItmxordenList(List<Itmxorden> itmxordenList) {
         this.itmxordenList = itmxordenList;
-    }
-
-    @XmlTransient
-    public List<CotizacionProd> getCotizacionProdList() {
-        return cotizacionProdList;
-    }
-
-    public void setCotizacionProdList(List<CotizacionProd> cotizacionProdList) {
-        this.cotizacionProdList = cotizacionProdList;
     }
 
     @Override

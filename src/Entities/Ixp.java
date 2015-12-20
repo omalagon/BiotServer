@@ -34,6 +34,9 @@ import javax.xml.bind.annotation.XmlRootElement;
     @NamedQuery(name = "Ixp.findByPrecio", query = "SELECT i FROM Ixp i WHERE i.precio = :precio")})
 public class Ixp implements Serializable {
 
+    @Column(name = "numsol")
+    private Double numsol;
+
     private static final long serialVersionUID = 1L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -118,6 +121,14 @@ public class Ixp implements Serializable {
     @Override
     public String toString() {
         return "Entities.Ixp[ id=" + id + " ]";
+    }
+
+    public Double getNumsol() {
+        return numsol;
+    }
+
+    public void setNumsol(Double numsol) {
+        this.numsol = numsol;
     }
     
 }

@@ -7,24 +7,28 @@ package Logica;
 
 import Controllers.DatosformatosJpaController;
 import Controllers.ItemJpaController;
+import Controllers.ItmxordenJpaController;
 import Controllers.ItxsolJpaController;
 import Controllers.IxpJpaController;
 import Controllers.OrdencompraJpaController;
 import Controllers.PermisosJpaController;
 import Controllers.ProveedorJpaController;
 import Controllers.SolicitudPrJpaController;
+import Controllers.TablamostrarJpaController;
 import Controllers.UsuarioJpaController;
 import Controllers.exceptions.IllegalOrphanException;
 import Controllers.exceptions.NonexistentEntityException;
 import Controllers.exceptions.PreexistingEntityException;
 import Entities.Datosformatos;
 import Entities.Item;
+import Entities.Itmxorden;
 import Entities.Itxsol;
 import Entities.Ixp;
 import Entities.Ordencompra;
 import Entities.Permisos;
 import Entities.Proveedor;
 import Entities.SolicitudPr;
+import Entities.Tablamostrar;
 import EstructurasAux.BuscarUsuario;
 import EstructurasAux.solicitudPr;
 import EstructurasAux.ItemInventario;
@@ -58,6 +62,7 @@ import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.logging.Level;
@@ -904,7 +909,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         if (itemsEnviados == false) {
             try {
                 con.destroy(numSol);
-            } catch (IllegalOrphanException | NonexistentEntityException ex) {
+            } catch (NonexistentEntityException ex) {
                 Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
@@ -1230,7 +1235,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         if (!resultList.isEmpty()) {
             for (String i : resultList) {
                 proveedor datosProveedor = this.getDatosProveedor(i);
-                ArrayList<ItemInventario> itemsAsociados = this.getItemxProveedorSolicitudes(i);
+                ArrayList<ItemInventario> itemsAsociados = this.getItemxProveedorSolicitudes(i, "NO");
                 if (!itemsAsociados.isEmpty()) {
                     datosProveedor.setItemAsociado(itemsAsociados);
                 } else {
@@ -1247,7 +1252,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     }
 
-    public ArrayList<ItemInventario> getItemxProveedorSolicitudes(String proveedor) throws RemoteException {
+    @Override
+    public ArrayList<ItemInventario> getItemxProveedorSolicitudes(String proveedor, String generado) throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Itxsol.findItemByProveedor");
@@ -1255,11 +1261,13 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         List<Itxsol> resultList = q.getResultList();
         ArrayList<ItemInventario> listaItems = new ArrayList<>();
         for (Itxsol i : resultList) {
-            Item cinterno = i.getCinterno();
-            ItemInventario EntityToItem = cinterno.EntityToItem(cinterno);
-            EntityToItem.setNumSolAsociado(Double.toString(i.getNumSol()));
-            EntityToItem.setCantidadAprobada(i.getCantidadaprobada().floatValue());
-            listaItems.add(EntityToItem);
+            if (i.getGenerado().equalsIgnoreCase(generado)) {
+                Item cinterno = i.getCinterno();
+                ItemInventario EntityToItem = cinterno.EntityToItem(cinterno);
+                EntityToItem.setNumSolAsociado(Double.toString(i.getNumSol()));
+                EntityToItem.setCantidadAprobada(i.getCantidadaprobada().floatValue());
+                listaItems.add(EntityToItem);
+            }
         }
         if (!resultList.isEmpty()) {
             emf.close();
@@ -1272,8 +1280,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     //Ordenes de Compra
     @Override
-    public Double generarOCompra(ArrayList<ItemInventario> listaItems,String idAo) throws RemoteException
-    {
+    public Double generarOCompra(ArrayList<ItemInventario> listaItems, String idAo) throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
         OrdencompraJpaController oCompra = new OrdencompraJpaController(emf);
@@ -1284,7 +1291,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         qOcompra.setParameter("aoId", new Double(idAo));
         Ordencompra get = (Ordencompra) qOcompra.getResultList().get(0);
         Query q = em.createNamedQuery("Itxsol.findByNumsolAndCinterno");
-        ItxsolJpaController contr=  new ItxsolJpaController(emf);
+        ItxsolJpaController contr = new ItxsolJpaController(emf);
+        ItmxordenJpaController contrOrden = new ItmxordenJpaController(emf);
+        Itmxorden itemOrden = new Itmxorden();
         for (ItemInventario i : listaItems) {
             try {
                 q.setParameter("numSol", new Double(i.getNumSolAsociado()));
@@ -1293,6 +1302,17 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 Itxsol findItxsol = contr.findItxsol(resultList.get(0).getId());
                 findItxsol.setGenerado("SI");
                 contr.edit(findItxsol);
+                itemOrden = new Itmxorden(get.getNumOrden().intValue(), i.getCantidadAprobada(), i.getPrecio());
+                itemOrden.setItemCinterno(new ItemJpaController(emf).findItem(i.getNumero()));
+                itemOrden.setProveedorNit(new ProveedorJpaController(emf).findProveedor(findItxsol.getNitProveedor()));
+                contrOrden.create(itemOrden);
+                Tablamostrar tablamostrar = new Tablamostrar();
+                tablamostrar.setIdArchivo(get.getNumOrden());
+                tablamostrar.setIdUsuario(idAo);
+                tablamostrar.setTipoArchivo("Compra");
+                tablamostrar.setMostrar("SI");
+                TablamostrarJpaController conTabla = new TablamostrarJpaController(emf);
+                conTabla.create(tablamostrar);
             } catch (Exception ex) {
                 Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -1300,16 +1320,52 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         emf.close();
         return get.getNumOrden();
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+    @Override
+    public int buscarOcompra(ItemInventario i, String proveedor) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itmxorden.findByAllParameters");
+        q.setParameter("nit", new ProveedorJpaController(emf).findProveedor(proveedor));
+        q.setParameter("caprobada", i.getCantidadAprobada());
+        q.setParameter("precio", i.getPrecio());
+        q.setParameter("cinterno", new ItemJpaController(emf).findItem(i.getNumero()));
+        List<Itmxorden> resultList = q.getResultList();
+        double numorden = resultList.get(0).getNumorden();
+        emf.close();
+        return new Double(numorden).intValue();
+    }
+
+    public boolean devolverOCompra(ItemInventario itm, double numorden) throws RemoteException {
+        boolean hecho = false;
+        try {
+            EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+            EntityManager em = emf.createEntityManager();
+            Query q = em.createNamedQuery("Itmxorden.findByNumorden_item");
+            q.setParameter("numorden", numorden);
+            Item findItem = new ItemJpaController(emf).findItem(itm.getNumero());
+            q.setParameter("cinterno", findItem);
+            List<Itmxorden> resultList = q.getResultList();
+            ItmxordenJpaController con = new ItmxordenJpaController(emf);
+            Itmxorden f = con.findItmxorden(resultList.get(0).getIdOCompra());
+            con.destroy(f.getIdOCompra());
+            Query qq = em.createNamedQuery("Itxsol.findSol_Item");
+            qq.setParameter("numSol", new Double(itm.getNumSolAsociado()));
+            qq.setParameter("cinterno", findItem);
+            Itxsol get = (Itxsol) qq.getResultList().get(0);
+            ItxsolJpaController itxCont = new ItxsolJpaController(emf);
+            Itxsol found = itxCont.findItxsol(get.getId());
+            found.setGenerado("NO");
+            itxCont.edit(found);
+            hecho = true;
+        } catch (NonexistentEntityException ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
+    }
+
     //Datos formatos
     /**
      *
@@ -1326,6 +1382,65 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         Datosformatos found = datos.findDatosformatos(new Integer(id));
         emf.close();
         return new datosFormatos(found.getRevision(), found.getFechaactualizacion(), found.getTitulo());
+    }
+
+    //Auxiliar
+    @Override
+    public String getFecha() throws RemoteException {
+        GregorianCalendar hoy = new GregorianCalendar();
+        String cadenaFecha = hoy.get(Calendar.DAY_OF_MONTH) + "/" + (hoy.get(Calendar.MONTH) + 1) + "/" + hoy.get(Calendar.YEAR);
+        return cadenaFecha;
+    }
+
+    //Descargos
+    /**
+     *
+     * @param d
+     * @return
+     * @throws RemoteException
+     *
+     * Registra el descargo de un ítem en la base de datos.
+     */
+    @Override
+    public boolean realizarDescargo(descargo d) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        Connection con = null;
+        PreparedStatement ps = null;
+        ResultSet rs = null;
+        String statement = "INSERT INTO DESCARGO(FECHA, ID_usuario, AREA, CANTIDAD, CINTERNO) VALUES (?,?,?,?,?)";
+        boolean valido = false;
+        try {
+            con = Conexion.conexion.getConnection();
+            ps = con.prepareStatement(statement);
+            ps.setDate(1, new Date(d.getFecha().getTimeInMillis()));
+            ps.setString(2, d.getId());
+            ps.setString(3, d.getArea());
+            ps.setFloat(4, d.getCantidad());
+            ps.setString(5, d.getCinterno());
+            ps.executeUpdate();
+            this.updateCantidad(d.getCinterno(), d.getCantidad() * -1);
+            valido = true;
+
+        } catch (SQLException ex) {
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
+        } finally {
+
+            try {
+                if (ps != null) {
+                    ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                System.out.println("Error cerrando conexion");
+            }
+        }
+        return valido;
     }
 
     /**
@@ -2249,56 +2364,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
 
-    }
-
-    /**
-     *
-     * @param d
-     * @return
-     * @throws RemoteException
-     *
-     * Registra el descargo de un ítem en la base de datos.
-     */
-    @Override
-    public boolean realizarDescargo(descargo d) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "INSERT INTO DESCARGO(FECHA, ID_usuario, AREA, CANTIDAD, CINTERNO) VALUES (?,?,?,?,?)";
-        boolean valido = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setDate(1, new Date(d.getFecha().getTimeInMillis()));
-            ps.setString(2, d.getId());
-            ps.setString(3, d.getArea());
-            ps.setFloat(4, d.getCantidad());
-            ps.setString(5, d.getCinterno());
-            ps.executeUpdate();
-            this.updateCantidad(d.getCinterno(), d.getCantidad() * -1);
-            valido = true;
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return valido;
     }
 
     /**

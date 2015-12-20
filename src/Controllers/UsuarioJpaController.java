@@ -18,9 +18,7 @@ import Entities.Usuario;
 import Entities.Descargo;
 import java.util.ArrayList;
 import java.util.List;
-import Entities.Aprobados;
 import Entities.Recepcion;
-import Entities.CotizacionProd;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 
@@ -43,14 +41,8 @@ public class UsuarioJpaController implements Serializable {
         if (usuario.getDescargoList() == null) {
             usuario.setDescargoList(new ArrayList<Descargo>());
         }
-        if (usuario.getAprobadosList() == null) {
-            usuario.setAprobadosList(new ArrayList<Aprobados>());
-        }
         if (usuario.getRecepcionList() == null) {
             usuario.setRecepcionList(new ArrayList<Recepcion>());
-        }
-        if (usuario.getCotizacionProdList() == null) {
-            usuario.setCotizacionProdList(new ArrayList<CotizacionProd>());
         }
         if (usuario.getUsuarioList() == null) {
             usuario.setUsuarioList(new ArrayList<Usuario>());
@@ -75,24 +67,12 @@ public class UsuarioJpaController implements Serializable {
                 attachedDescargoList.add(descargoListDescargoToAttach);
             }
             usuario.setDescargoList(attachedDescargoList);
-            List<Aprobados> attachedAprobadosList = new ArrayList<Aprobados>();
-            for (Aprobados aprobadosListAprobadosToAttach : usuario.getAprobadosList()) {
-                aprobadosListAprobadosToAttach = em.getReference(aprobadosListAprobadosToAttach.getClass(), aprobadosListAprobadosToAttach.getIdAprobado());
-                attachedAprobadosList.add(aprobadosListAprobadosToAttach);
-            }
-            usuario.setAprobadosList(attachedAprobadosList);
             List<Recepcion> attachedRecepcionList = new ArrayList<Recepcion>();
             for (Recepcion recepcionListRecepcionToAttach : usuario.getRecepcionList()) {
                 recepcionListRecepcionToAttach = em.getReference(recepcionListRecepcionToAttach.getClass(), recepcionListRecepcionToAttach.getFechallegada());
                 attachedRecepcionList.add(recepcionListRecepcionToAttach);
             }
             usuario.setRecepcionList(attachedRecepcionList);
-            List<CotizacionProd> attachedCotizacionProdList = new ArrayList<CotizacionProd>();
-            for (CotizacionProd cotizacionProdListCotizacionProdToAttach : usuario.getCotizacionProdList()) {
-                cotizacionProdListCotizacionProdToAttach = em.getReference(cotizacionProdListCotizacionProdToAttach.getClass(), cotizacionProdListCotizacionProdToAttach.getId());
-                attachedCotizacionProdList.add(cotizacionProdListCotizacionProdToAttach);
-            }
-            usuario.setCotizacionProdList(attachedCotizacionProdList);
             List<Usuario> attachedUsuarioList = new ArrayList<Usuario>();
             for (Usuario usuarioListUsuarioToAttach : usuario.getUsuarioList()) {
                 usuarioListUsuarioToAttach = em.getReference(usuarioListUsuarioToAttach.getClass(), usuarioListUsuarioToAttach.getId());
@@ -122,15 +102,6 @@ public class UsuarioJpaController implements Serializable {
                     oldIdUsuarioOfDescargoListDescargo = em.merge(oldIdUsuarioOfDescargoListDescargo);
                 }
             }
-            for (Aprobados aprobadosListAprobados : usuario.getAprobadosList()) {
-                Usuario oldIdDaOfAprobadosListAprobados = aprobadosListAprobados.getIdDa();
-                aprobadosListAprobados.setIdDa(usuario);
-                aprobadosListAprobados = em.merge(aprobadosListAprobados);
-                if (oldIdDaOfAprobadosListAprobados != null) {
-                    oldIdDaOfAprobadosListAprobados.getAprobadosList().remove(aprobadosListAprobados);
-                    oldIdDaOfAprobadosListAprobados = em.merge(oldIdDaOfAprobadosListAprobados);
-                }
-            }
             for (Recepcion recepcionListRecepcion : usuario.getRecepcionList()) {
                 Usuario oldIdUsuarioOfRecepcionListRecepcion = recepcionListRecepcion.getIdUsuario();
                 recepcionListRecepcion.setIdUsuario(usuario);
@@ -138,15 +109,6 @@ public class UsuarioJpaController implements Serializable {
                 if (oldIdUsuarioOfRecepcionListRecepcion != null) {
                     oldIdUsuarioOfRecepcionListRecepcion.getRecepcionList().remove(recepcionListRecepcion);
                     oldIdUsuarioOfRecepcionListRecepcion = em.merge(oldIdUsuarioOfRecepcionListRecepcion);
-                }
-            }
-            for (CotizacionProd cotizacionProdListCotizacionProd : usuario.getCotizacionProdList()) {
-                Usuario oldIdAoOfCotizacionProdListCotizacionProd = cotizacionProdListCotizacionProd.getIdAo();
-                cotizacionProdListCotizacionProd.setIdAo(usuario);
-                cotizacionProdListCotizacionProd = em.merge(cotizacionProdListCotizacionProd);
-                if (oldIdAoOfCotizacionProdListCotizacionProd != null) {
-                    oldIdAoOfCotizacionProdListCotizacionProd.getCotizacionProdList().remove(cotizacionProdListCotizacionProd);
-                    oldIdAoOfCotizacionProdListCotizacionProd = em.merge(oldIdAoOfCotizacionProdListCotizacionProd);
                 }
             }
             for (Usuario usuarioListUsuario : usuario.getUsuarioList()) {
@@ -183,12 +145,8 @@ public class UsuarioJpaController implements Serializable {
             Usuario id1New = usuario.getId1();
             List<Descargo> descargoListOld = persistentUsuario.getDescargoList();
             List<Descargo> descargoListNew = usuario.getDescargoList();
-            List<Aprobados> aprobadosListOld = persistentUsuario.getAprobadosList();
-            List<Aprobados> aprobadosListNew = usuario.getAprobadosList();
             List<Recepcion> recepcionListOld = persistentUsuario.getRecepcionList();
             List<Recepcion> recepcionListNew = usuario.getRecepcionList();
-            List<CotizacionProd> cotizacionProdListOld = persistentUsuario.getCotizacionProdList();
-            List<CotizacionProd> cotizacionProdListNew = usuario.getCotizacionProdList();
             List<Usuario> usuarioListOld = persistentUsuario.getUsuarioList();
             List<Usuario> usuarioListNew = usuario.getUsuarioList();
             List<String> illegalOrphanMessages = null;
@@ -206,28 +164,12 @@ public class UsuarioJpaController implements Serializable {
                     illegalOrphanMessages.add("You must retain Descargo " + descargoListOldDescargo + " since its idUsuario field is not nullable.");
                 }
             }
-            for (Aprobados aprobadosListOldAprobados : aprobadosListOld) {
-                if (!aprobadosListNew.contains(aprobadosListOldAprobados)) {
-                    if (illegalOrphanMessages == null) {
-                        illegalOrphanMessages = new ArrayList<String>();
-                    }
-                    illegalOrphanMessages.add("You must retain Aprobados " + aprobadosListOldAprobados + " since its idDa field is not nullable.");
-                }
-            }
             for (Recepcion recepcionListOldRecepcion : recepcionListOld) {
                 if (!recepcionListNew.contains(recepcionListOldRecepcion)) {
                     if (illegalOrphanMessages == null) {
                         illegalOrphanMessages = new ArrayList<String>();
                     }
                     illegalOrphanMessages.add("You must retain Recepcion " + recepcionListOldRecepcion + " since its idUsuario field is not nullable.");
-                }
-            }
-            for (CotizacionProd cotizacionProdListOldCotizacionProd : cotizacionProdListOld) {
-                if (!cotizacionProdListNew.contains(cotizacionProdListOldCotizacionProd)) {
-                    if (illegalOrphanMessages == null) {
-                        illegalOrphanMessages = new ArrayList<String>();
-                    }
-                    illegalOrphanMessages.add("You must retain CotizacionProd " + cotizacionProdListOldCotizacionProd + " since its idAo field is not nullable.");
                 }
             }
             for (Usuario usuarioListOldUsuario : usuarioListOld) {
@@ -256,13 +198,6 @@ public class UsuarioJpaController implements Serializable {
             }
             descargoListNew = attachedDescargoListNew;
             usuario.setDescargoList(descargoListNew);
-            List<Aprobados> attachedAprobadosListNew = new ArrayList<Aprobados>();
-            for (Aprobados aprobadosListNewAprobadosToAttach : aprobadosListNew) {
-                aprobadosListNewAprobadosToAttach = em.getReference(aprobadosListNewAprobadosToAttach.getClass(), aprobadosListNewAprobadosToAttach.getIdAprobado());
-                attachedAprobadosListNew.add(aprobadosListNewAprobadosToAttach);
-            }
-            aprobadosListNew = attachedAprobadosListNew;
-            usuario.setAprobadosList(aprobadosListNew);
             List<Recepcion> attachedRecepcionListNew = new ArrayList<Recepcion>();
             for (Recepcion recepcionListNewRecepcionToAttach : recepcionListNew) {
                 recepcionListNewRecepcionToAttach = em.getReference(recepcionListNewRecepcionToAttach.getClass(), recepcionListNewRecepcionToAttach.getFechallegada());
@@ -270,13 +205,6 @@ public class UsuarioJpaController implements Serializable {
             }
             recepcionListNew = attachedRecepcionListNew;
             usuario.setRecepcionList(recepcionListNew);
-            List<CotizacionProd> attachedCotizacionProdListNew = new ArrayList<CotizacionProd>();
-            for (CotizacionProd cotizacionProdListNewCotizacionProdToAttach : cotizacionProdListNew) {
-                cotizacionProdListNewCotizacionProdToAttach = em.getReference(cotizacionProdListNewCotizacionProdToAttach.getClass(), cotizacionProdListNewCotizacionProdToAttach.getId());
-                attachedCotizacionProdListNew.add(cotizacionProdListNewCotizacionProdToAttach);
-            }
-            cotizacionProdListNew = attachedCotizacionProdListNew;
-            usuario.setCotizacionProdList(cotizacionProdListNew);
             List<Usuario> attachedUsuarioListNew = new ArrayList<Usuario>();
             for (Usuario usuarioListNewUsuarioToAttach : usuarioListNew) {
                 usuarioListNewUsuarioToAttach = em.getReference(usuarioListNewUsuarioToAttach.getClass(), usuarioListNewUsuarioToAttach.getId());
@@ -313,17 +241,6 @@ public class UsuarioJpaController implements Serializable {
                     }
                 }
             }
-            for (Aprobados aprobadosListNewAprobados : aprobadosListNew) {
-                if (!aprobadosListOld.contains(aprobadosListNewAprobados)) {
-                    Usuario oldIdDaOfAprobadosListNewAprobados = aprobadosListNewAprobados.getIdDa();
-                    aprobadosListNewAprobados.setIdDa(usuario);
-                    aprobadosListNewAprobados = em.merge(aprobadosListNewAprobados);
-                    if (oldIdDaOfAprobadosListNewAprobados != null && !oldIdDaOfAprobadosListNewAprobados.equals(usuario)) {
-                        oldIdDaOfAprobadosListNewAprobados.getAprobadosList().remove(aprobadosListNewAprobados);
-                        oldIdDaOfAprobadosListNewAprobados = em.merge(oldIdDaOfAprobadosListNewAprobados);
-                    }
-                }
-            }
             for (Recepcion recepcionListNewRecepcion : recepcionListNew) {
                 if (!recepcionListOld.contains(recepcionListNewRecepcion)) {
                     Usuario oldIdUsuarioOfRecepcionListNewRecepcion = recepcionListNewRecepcion.getIdUsuario();
@@ -332,17 +249,6 @@ public class UsuarioJpaController implements Serializable {
                     if (oldIdUsuarioOfRecepcionListNewRecepcion != null && !oldIdUsuarioOfRecepcionListNewRecepcion.equals(usuario)) {
                         oldIdUsuarioOfRecepcionListNewRecepcion.getRecepcionList().remove(recepcionListNewRecepcion);
                         oldIdUsuarioOfRecepcionListNewRecepcion = em.merge(oldIdUsuarioOfRecepcionListNewRecepcion);
-                    }
-                }
-            }
-            for (CotizacionProd cotizacionProdListNewCotizacionProd : cotizacionProdListNew) {
-                if (!cotizacionProdListOld.contains(cotizacionProdListNewCotizacionProd)) {
-                    Usuario oldIdAoOfCotizacionProdListNewCotizacionProd = cotizacionProdListNewCotizacionProd.getIdAo();
-                    cotizacionProdListNewCotizacionProd.setIdAo(usuario);
-                    cotizacionProdListNewCotizacionProd = em.merge(cotizacionProdListNewCotizacionProd);
-                    if (oldIdAoOfCotizacionProdListNewCotizacionProd != null && !oldIdAoOfCotizacionProdListNewCotizacionProd.equals(usuario)) {
-                        oldIdAoOfCotizacionProdListNewCotizacionProd.getCotizacionProdList().remove(cotizacionProdListNewCotizacionProd);
-                        oldIdAoOfCotizacionProdListNewCotizacionProd = em.merge(oldIdAoOfCotizacionProdListNewCotizacionProd);
                     }
                 }
             }
@@ -401,26 +307,12 @@ public class UsuarioJpaController implements Serializable {
                 }
                 illegalOrphanMessages.add("This Usuario (" + usuario + ") cannot be destroyed since the Descargo " + descargoListOrphanCheckDescargo + " in its descargoList field has a non-nullable idUsuario field.");
             }
-            List<Aprobados> aprobadosListOrphanCheck = usuario.getAprobadosList();
-            for (Aprobados aprobadosListOrphanCheckAprobados : aprobadosListOrphanCheck) {
-                if (illegalOrphanMessages == null) {
-                    illegalOrphanMessages = new ArrayList<String>();
-                }
-                illegalOrphanMessages.add("This Usuario (" + usuario + ") cannot be destroyed since the Aprobados " + aprobadosListOrphanCheckAprobados + " in its aprobadosList field has a non-nullable idDa field.");
-            }
             List<Recepcion> recepcionListOrphanCheck = usuario.getRecepcionList();
             for (Recepcion recepcionListOrphanCheckRecepcion : recepcionListOrphanCheck) {
                 if (illegalOrphanMessages == null) {
                     illegalOrphanMessages = new ArrayList<String>();
                 }
                 illegalOrphanMessages.add("This Usuario (" + usuario + ") cannot be destroyed since the Recepcion " + recepcionListOrphanCheckRecepcion + " in its recepcionList field has a non-nullable idUsuario field.");
-            }
-            List<CotizacionProd> cotizacionProdListOrphanCheck = usuario.getCotizacionProdList();
-            for (CotizacionProd cotizacionProdListOrphanCheckCotizacionProd : cotizacionProdListOrphanCheck) {
-                if (illegalOrphanMessages == null) {
-                    illegalOrphanMessages = new ArrayList<String>();
-                }
-                illegalOrphanMessages.add("This Usuario (" + usuario + ") cannot be destroyed since the CotizacionProd " + cotizacionProdListOrphanCheckCotizacionProd + " in its cotizacionProdList field has a non-nullable idAo field.");
             }
             List<Usuario> usuarioListOrphanCheck = usuario.getUsuarioList();
             for (Usuario usuarioListOrphanCheckUsuario : usuarioListOrphanCheck) {

@@ -58,14 +58,10 @@ public class Usuario implements Serializable {
     private String lab;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "idUsuario")
     private List<Descargo> descargoList;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "idDa")
-    private List<Aprobados> aprobadosList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "idUsuario")
     private List<Recepcion> recepcionList;
     @OneToOne(cascade = CascadeType.ALL, mappedBy = "usuario")
     private Permisos permisos;
-    @OneToMany(cascade = CascadeType.ALL, mappedBy = "idAo")
-    private List<CotizacionProd> cotizacionProdList;
     @OneToMany(cascade = CascadeType.ALL, mappedBy = "id1")
     private List<Usuario> usuarioList;
     @JoinColumn(name = "id1", referencedColumnName = "id")
@@ -154,15 +150,6 @@ public class Usuario implements Serializable {
     }
 
     @XmlTransient
-    public List<Aprobados> getAprobadosList() {
-        return aprobadosList;
-    }
-
-    public void setAprobadosList(List<Aprobados> aprobadosList) {
-        this.aprobadosList = aprobadosList;
-    }
-
-    @XmlTransient
     public List<Recepcion> getRecepcionList() {
         return recepcionList;
     }
@@ -177,15 +164,6 @@ public class Usuario implements Serializable {
 
     public void setPermisos(Permisos permisos) {
         this.permisos = permisos;
-    }
-
-    @XmlTransient
-    public List<CotizacionProd> getCotizacionProdList() {
-        return cotizacionProdList;
-    }
-
-    public void setCotizacionProdList(List<CotizacionProd> cotizacionProdList) {
-        this.cotizacionProdList = cotizacionProdList;
     }
 
     @XmlTransient

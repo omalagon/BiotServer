@@ -14,14 +14,12 @@ import javax.persistence.EntityNotFoundException;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import Entities.Descargo;
+import Entities.Item;
 import java.util.ArrayList;
 import java.util.List;
 import Entities.Itxsol;
-import Entities.Aprobados;
 import Entities.Recepcion;
 import Entities.Itmxorden;
-import Entities.CotizacionProd;
-import Entities.Item;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 
@@ -47,17 +45,11 @@ public class ItemJpaController implements Serializable {
         if (item.getItxsolList() == null) {
             item.setItxsolList(new ArrayList<Itxsol>());
         }
-        if (item.getAprobadosList() == null) {
-            item.setAprobadosList(new ArrayList<Aprobados>());
-        }
         if (item.getRecepcionList() == null) {
             item.setRecepcionList(new ArrayList<Recepcion>());
         }
         if (item.getItmxordenList() == null) {
             item.setItmxordenList(new ArrayList<Itmxorden>());
-        }
-        if (item.getCotizacionProdList() == null) {
-            item.setCotizacionProdList(new ArrayList<CotizacionProd>());
         }
         EntityManager em = null;
         try {
@@ -75,12 +67,6 @@ public class ItemJpaController implements Serializable {
                 attachedItxsolList.add(itxsolListItxsolToAttach);
             }
             item.setItxsolList(attachedItxsolList);
-            List<Aprobados> attachedAprobadosList = new ArrayList<Aprobados>();
-            for (Aprobados aprobadosListAprobadosToAttach : item.getAprobadosList()) {
-                aprobadosListAprobadosToAttach = em.getReference(aprobadosListAprobadosToAttach.getClass(), aprobadosListAprobadosToAttach.getIdAprobado());
-                attachedAprobadosList.add(aprobadosListAprobadosToAttach);
-            }
-            item.setAprobadosList(attachedAprobadosList);
             List<Recepcion> attachedRecepcionList = new ArrayList<Recepcion>();
             for (Recepcion recepcionListRecepcionToAttach : item.getRecepcionList()) {
                 recepcionListRecepcionToAttach = em.getReference(recepcionListRecepcionToAttach.getClass(), recepcionListRecepcionToAttach.getFechallegada());
@@ -89,16 +75,10 @@ public class ItemJpaController implements Serializable {
             item.setRecepcionList(attachedRecepcionList);
             List<Itmxorden> attachedItmxordenList = new ArrayList<Itmxorden>();
             for (Itmxorden itmxordenListItmxordenToAttach : item.getItmxordenList()) {
-                itmxordenListItmxordenToAttach = em.getReference(itmxordenListItmxordenToAttach.getClass(), itmxordenListItmxordenToAttach.getItmxordenPK());
+                itmxordenListItmxordenToAttach = em.getReference(itmxordenListItmxordenToAttach.getClass(), itmxordenListItmxordenToAttach.getIdOCompra());
                 attachedItmxordenList.add(itmxordenListItmxordenToAttach);
             }
             item.setItmxordenList(attachedItmxordenList);
-            List<CotizacionProd> attachedCotizacionProdList = new ArrayList<CotizacionProd>();
-            for (CotizacionProd cotizacionProdListCotizacionProdToAttach : item.getCotizacionProdList()) {
-                cotizacionProdListCotizacionProdToAttach = em.getReference(cotizacionProdListCotizacionProdToAttach.getClass(), cotizacionProdListCotizacionProdToAttach.getId());
-                attachedCotizacionProdList.add(cotizacionProdListCotizacionProdToAttach);
-            }
-            item.setCotizacionProdList(attachedCotizacionProdList);
             em.persist(item);
             for (Descargo descargoListDescargo : item.getDescargoList()) {
                 Item oldCinternoOfDescargoListDescargo = descargoListDescargo.getCinterno();
@@ -118,15 +98,6 @@ public class ItemJpaController implements Serializable {
                     oldCinternoOfItxsolListItxsol = em.merge(oldCinternoOfItxsolListItxsol);
                 }
             }
-            for (Aprobados aprobadosListAprobados : item.getAprobadosList()) {
-                Item oldCinternoOfAprobadosListAprobados = aprobadosListAprobados.getCinterno();
-                aprobadosListAprobados.setCinterno(item);
-                aprobadosListAprobados = em.merge(aprobadosListAprobados);
-                if (oldCinternoOfAprobadosListAprobados != null) {
-                    oldCinternoOfAprobadosListAprobados.getAprobadosList().remove(aprobadosListAprobados);
-                    oldCinternoOfAprobadosListAprobados = em.merge(oldCinternoOfAprobadosListAprobados);
-                }
-            }
             for (Recepcion recepcionListRecepcion : item.getRecepcionList()) {
                 Item oldCinternoOfRecepcionListRecepcion = recepcionListRecepcion.getCinterno();
                 recepcionListRecepcion.setCinterno(item);
@@ -143,15 +114,6 @@ public class ItemJpaController implements Serializable {
                 if (oldItemCinternoOfItmxordenListItmxorden != null) {
                     oldItemCinternoOfItmxordenListItmxorden.getItmxordenList().remove(itmxordenListItmxorden);
                     oldItemCinternoOfItmxordenListItmxorden = em.merge(oldItemCinternoOfItmxordenListItmxorden);
-                }
-            }
-            for (CotizacionProd cotizacionProdListCotizacionProd : item.getCotizacionProdList()) {
-                Item oldCinternoOfCotizacionProdListCotizacionProd = cotizacionProdListCotizacionProd.getCinterno();
-                cotizacionProdListCotizacionProd.setCinterno(item);
-                cotizacionProdListCotizacionProd = em.merge(cotizacionProdListCotizacionProd);
-                if (oldCinternoOfCotizacionProdListCotizacionProd != null) {
-                    oldCinternoOfCotizacionProdListCotizacionProd.getCotizacionProdList().remove(cotizacionProdListCotizacionProd);
-                    oldCinternoOfCotizacionProdListCotizacionProd = em.merge(oldCinternoOfCotizacionProdListCotizacionProd);
                 }
             }
             em.getTransaction().commit();
@@ -177,14 +139,10 @@ public class ItemJpaController implements Serializable {
             List<Descargo> descargoListNew = item.getDescargoList();
             List<Itxsol> itxsolListOld = persistentItem.getItxsolList();
             List<Itxsol> itxsolListNew = item.getItxsolList();
-            List<Aprobados> aprobadosListOld = persistentItem.getAprobadosList();
-            List<Aprobados> aprobadosListNew = item.getAprobadosList();
             List<Recepcion> recepcionListOld = persistentItem.getRecepcionList();
             List<Recepcion> recepcionListNew = item.getRecepcionList();
             List<Itmxorden> itmxordenListOld = persistentItem.getItmxordenList();
             List<Itmxorden> itmxordenListNew = item.getItmxordenList();
-            List<CotizacionProd> cotizacionProdListOld = persistentItem.getCotizacionProdList();
-            List<CotizacionProd> cotizacionProdListNew = item.getCotizacionProdList();
             List<String> illegalOrphanMessages = null;
             for (Descargo descargoListOldDescargo : descargoListOld) {
                 if (!descargoListNew.contains(descargoListOldDescargo)) {
@@ -202,14 +160,6 @@ public class ItemJpaController implements Serializable {
                     illegalOrphanMessages.add("You must retain Itxsol " + itxsolListOldItxsol + " since its cinterno field is not nullable.");
                 }
             }
-            for (Aprobados aprobadosListOldAprobados : aprobadosListOld) {
-                if (!aprobadosListNew.contains(aprobadosListOldAprobados)) {
-                    if (illegalOrphanMessages == null) {
-                        illegalOrphanMessages = new ArrayList<String>();
-                    }
-                    illegalOrphanMessages.add("You must retain Aprobados " + aprobadosListOldAprobados + " since its cinterno field is not nullable.");
-                }
-            }
             for (Recepcion recepcionListOldRecepcion : recepcionListOld) {
                 if (!recepcionListNew.contains(recepcionListOldRecepcion)) {
                     if (illegalOrphanMessages == null) {
@@ -224,14 +174,6 @@ public class ItemJpaController implements Serializable {
                         illegalOrphanMessages = new ArrayList<String>();
                     }
                     illegalOrphanMessages.add("You must retain Itmxorden " + itmxordenListOldItmxorden + " since its itemCinterno field is not nullable.");
-                }
-            }
-            for (CotizacionProd cotizacionProdListOldCotizacionProd : cotizacionProdListOld) {
-                if (!cotizacionProdListNew.contains(cotizacionProdListOldCotizacionProd)) {
-                    if (illegalOrphanMessages == null) {
-                        illegalOrphanMessages = new ArrayList<String>();
-                    }
-                    illegalOrphanMessages.add("You must retain CotizacionProd " + cotizacionProdListOldCotizacionProd + " since its cinterno field is not nullable.");
                 }
             }
             if (illegalOrphanMessages != null) {
@@ -251,13 +193,6 @@ public class ItemJpaController implements Serializable {
             }
             itxsolListNew = attachedItxsolListNew;
             item.setItxsolList(itxsolListNew);
-            List<Aprobados> attachedAprobadosListNew = new ArrayList<Aprobados>();
-            for (Aprobados aprobadosListNewAprobadosToAttach : aprobadosListNew) {
-                aprobadosListNewAprobadosToAttach = em.getReference(aprobadosListNewAprobadosToAttach.getClass(), aprobadosListNewAprobadosToAttach.getIdAprobado());
-                attachedAprobadosListNew.add(aprobadosListNewAprobadosToAttach);
-            }
-            aprobadosListNew = attachedAprobadosListNew;
-            item.setAprobadosList(aprobadosListNew);
             List<Recepcion> attachedRecepcionListNew = new ArrayList<Recepcion>();
             for (Recepcion recepcionListNewRecepcionToAttach : recepcionListNew) {
                 recepcionListNewRecepcionToAttach = em.getReference(recepcionListNewRecepcionToAttach.getClass(), recepcionListNewRecepcionToAttach.getFechallegada());
@@ -267,18 +202,11 @@ public class ItemJpaController implements Serializable {
             item.setRecepcionList(recepcionListNew);
             List<Itmxorden> attachedItmxordenListNew = new ArrayList<Itmxorden>();
             for (Itmxorden itmxordenListNewItmxordenToAttach : itmxordenListNew) {
-                itmxordenListNewItmxordenToAttach = em.getReference(itmxordenListNewItmxordenToAttach.getClass(), itmxordenListNewItmxordenToAttach.getItmxordenPK());
+                itmxordenListNewItmxordenToAttach = em.getReference(itmxordenListNewItmxordenToAttach.getClass(), itmxordenListNewItmxordenToAttach.getIdOCompra());
                 attachedItmxordenListNew.add(itmxordenListNewItmxordenToAttach);
             }
             itmxordenListNew = attachedItmxordenListNew;
             item.setItmxordenList(itmxordenListNew);
-            List<CotizacionProd> attachedCotizacionProdListNew = new ArrayList<CotizacionProd>();
-            for (CotizacionProd cotizacionProdListNewCotizacionProdToAttach : cotizacionProdListNew) {
-                cotizacionProdListNewCotizacionProdToAttach = em.getReference(cotizacionProdListNewCotizacionProdToAttach.getClass(), cotizacionProdListNewCotizacionProdToAttach.getId());
-                attachedCotizacionProdListNew.add(cotizacionProdListNewCotizacionProdToAttach);
-            }
-            cotizacionProdListNew = attachedCotizacionProdListNew;
-            item.setCotizacionProdList(cotizacionProdListNew);
             item = em.merge(item);
             for (Descargo descargoListNewDescargo : descargoListNew) {
                 if (!descargoListOld.contains(descargoListNewDescargo)) {
@@ -302,17 +230,6 @@ public class ItemJpaController implements Serializable {
                     }
                 }
             }
-            for (Aprobados aprobadosListNewAprobados : aprobadosListNew) {
-                if (!aprobadosListOld.contains(aprobadosListNewAprobados)) {
-                    Item oldCinternoOfAprobadosListNewAprobados = aprobadosListNewAprobados.getCinterno();
-                    aprobadosListNewAprobados.setCinterno(item);
-                    aprobadosListNewAprobados = em.merge(aprobadosListNewAprobados);
-                    if (oldCinternoOfAprobadosListNewAprobados != null && !oldCinternoOfAprobadosListNewAprobados.equals(item)) {
-                        oldCinternoOfAprobadosListNewAprobados.getAprobadosList().remove(aprobadosListNewAprobados);
-                        oldCinternoOfAprobadosListNewAprobados = em.merge(oldCinternoOfAprobadosListNewAprobados);
-                    }
-                }
-            }
             for (Recepcion recepcionListNewRecepcion : recepcionListNew) {
                 if (!recepcionListOld.contains(recepcionListNewRecepcion)) {
                     Item oldCinternoOfRecepcionListNewRecepcion = recepcionListNewRecepcion.getCinterno();
@@ -332,17 +249,6 @@ public class ItemJpaController implements Serializable {
                     if (oldItemCinternoOfItmxordenListNewItmxorden != null && !oldItemCinternoOfItmxordenListNewItmxorden.equals(item)) {
                         oldItemCinternoOfItmxordenListNewItmxorden.getItmxordenList().remove(itmxordenListNewItmxorden);
                         oldItemCinternoOfItmxordenListNewItmxorden = em.merge(oldItemCinternoOfItmxordenListNewItmxorden);
-                    }
-                }
-            }
-            for (CotizacionProd cotizacionProdListNewCotizacionProd : cotizacionProdListNew) {
-                if (!cotizacionProdListOld.contains(cotizacionProdListNewCotizacionProd)) {
-                    Item oldCinternoOfCotizacionProdListNewCotizacionProd = cotizacionProdListNewCotizacionProd.getCinterno();
-                    cotizacionProdListNewCotizacionProd.setCinterno(item);
-                    cotizacionProdListNewCotizacionProd = em.merge(cotizacionProdListNewCotizacionProd);
-                    if (oldCinternoOfCotizacionProdListNewCotizacionProd != null && !oldCinternoOfCotizacionProdListNewCotizacionProd.equals(item)) {
-                        oldCinternoOfCotizacionProdListNewCotizacionProd.getCotizacionProdList().remove(cotizacionProdListNewCotizacionProd);
-                        oldCinternoOfCotizacionProdListNewCotizacionProd = em.merge(oldCinternoOfCotizacionProdListNewCotizacionProd);
                     }
                 }
             }
@@ -390,13 +296,6 @@ public class ItemJpaController implements Serializable {
                 }
                 illegalOrphanMessages.add("This Item (" + item + ") cannot be destroyed since the Itxsol " + itxsolListOrphanCheckItxsol + " in its itxsolList field has a non-nullable cinterno field.");
             }
-            List<Aprobados> aprobadosListOrphanCheck = item.getAprobadosList();
-            for (Aprobados aprobadosListOrphanCheckAprobados : aprobadosListOrphanCheck) {
-                if (illegalOrphanMessages == null) {
-                    illegalOrphanMessages = new ArrayList<String>();
-                }
-                illegalOrphanMessages.add("This Item (" + item + ") cannot be destroyed since the Aprobados " + aprobadosListOrphanCheckAprobados + " in its aprobadosList field has a non-nullable cinterno field.");
-            }
             List<Recepcion> recepcionListOrphanCheck = item.getRecepcionList();
             for (Recepcion recepcionListOrphanCheckRecepcion : recepcionListOrphanCheck) {
                 if (illegalOrphanMessages == null) {
@@ -410,13 +309,6 @@ public class ItemJpaController implements Serializable {
                     illegalOrphanMessages = new ArrayList<String>();
                 }
                 illegalOrphanMessages.add("This Item (" + item + ") cannot be destroyed since the Itmxorden " + itmxordenListOrphanCheckItmxorden + " in its itmxordenList field has a non-nullable itemCinterno field.");
-            }
-            List<CotizacionProd> cotizacionProdListOrphanCheck = item.getCotizacionProdList();
-            for (CotizacionProd cotizacionProdListOrphanCheckCotizacionProd : cotizacionProdListOrphanCheck) {
-                if (illegalOrphanMessages == null) {
-                    illegalOrphanMessages = new ArrayList<String>();
-                }
-                illegalOrphanMessages.add("This Item (" + item + ") cannot be destroyed since the CotizacionProd " + cotizacionProdListOrphanCheckCotizacionProd + " in its cotizacionProdList field has a non-nullable cinterno field.");
             }
             if (illegalOrphanMessages != null) {
                 throw new IllegalOrphanException(illegalOrphanMessages);

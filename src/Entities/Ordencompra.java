@@ -34,6 +34,9 @@ import javax.xml.bind.annotation.XmlTransient;
     @NamedQuery(name = "Ordencompra.findByAoId", query = "SELECT o FROM Ordencompra o WHERE o.aoId = :aoId ORDER BY o.numOrden DESC")})
 public class Ordencompra implements Serializable {
 
+    @Column(name = "observaciones")
+    private String observaciones;
+
     private static final long serialVersionUID = 1L;
     // @Max(value=?)  @Min(value=?)//if you know range of your decimal fields consider using these annotations to enforce field validation
     @Id
@@ -101,6 +104,14 @@ public class Ordencompra implements Serializable {
     @Override
     public String toString() {
         return "Entities.Ordencompra[ numOrden=" + numOrden + " ]";
+    }
+
+    public String getObservaciones() {
+        return observaciones;
+    }
+
+    public void setObservaciones(String observaciones) {
+        this.observaciones = observaciones;
     }
     
 }
