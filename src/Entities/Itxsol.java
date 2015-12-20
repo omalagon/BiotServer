@@ -29,11 +29,20 @@ import javax.xml.bind.annotation.XmlRootElement;
 @NamedQueries({
     @NamedQuery(name = "Itxsol.findAll", query = "SELECT i FROM Itxsol i"),
     @NamedQuery(name = "Itxsol.findSol_Item", query = "SELECT i FROM Itxsol i where i.numSol = :numSol AND i.cinterno = :cinterno"),
+    @NamedQuery(name = "Itxsol.findProveedorByGenerado", query = "SELECT DISTINCT i.nitProveedor FROM Itxsol i where i.generado like :generado"),
+    @NamedQuery(name = "Itxsol.findByNumsolAndCinterno", query = "SELECT i FROM Itxsol i where i.numSol =:numSol AND i.cinterno = :cinterno"),
+    @NamedQuery(name = "Itxsol.findItemsAsociadosAProveedor", query = "SELECT i FROM Itxsol i where i.nitProveedor =:nit"),
+    @NamedQuery(name = "Itxsol.findItemByProveedor", query = "SELECT i FROM Itxsol i where i.nitProveedor =:nit"),
     @NamedQuery(name = "Itxsol.findById", query = "SELECT i FROM Itxsol i WHERE i.id = :id"),
     @NamedQuery(name = "Itxsol.findByCantidadsol", query = "SELECT i FROM Itxsol i WHERE i.cantidadsol = :cantidadsol"),
     @NamedQuery(name = "Itxsol.findByAprobado", query = "SELECT i FROM Itxsol i WHERE i.numSol = :numSol AND i.aprobado like :aprobado"),
     @NamedQuery(name = "Itxsol.findByNumSol", query = "SELECT i FROM Itxsol i WHERE i.numSol = :numSol")})
 public class Itxsol implements Serializable {
+
+    @Column(name = "generado")
+    private String generado;
+    @Column(name = "nitProveedor")
+    private String nitProveedor;
     @Column(name = "cantidadaprobada")
     private Double cantidadaprobada;
 
@@ -154,6 +163,22 @@ public class Itxsol implements Serializable {
 
     public void setCantidadaprobada(Double cantidadaprobada) {
         this.cantidadaprobada = cantidadaprobada;
+    }
+
+    public String getGenerado() {
+        return generado;
+    }
+
+    public void setGenerado(String generado) {
+        this.generado = generado;
+    }
+
+    public String getNitProveedor() {
+        return nitProveedor;
+    }
+
+    public void setNitProveedor(String nitProveedor) {
+        this.nitProveedor = nitProveedor;
     }
     
 }

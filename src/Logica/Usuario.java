@@ -9,6 +9,7 @@ import Controllers.DatosformatosJpaController;
 import Controllers.ItemJpaController;
 import Controllers.ItxsolJpaController;
 import Controllers.IxpJpaController;
+import Controllers.OrdencompraJpaController;
 import Controllers.PermisosJpaController;
 import Controllers.ProveedorJpaController;
 import Controllers.SolicitudPrJpaController;
@@ -20,6 +21,7 @@ import Entities.Datosformatos;
 import Entities.Item;
 import Entities.Itxsol;
 import Entities.Ixp;
+import Entities.Ordencompra;
 import Entities.Permisos;
 import Entities.Proveedor;
 import Entities.SolicitudPr;
@@ -311,20 +313,20 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             q.setParameter("nit", NIT);
             IxpJpaController ixpCo = new IxpJpaController(emf);
             List<Ixp> resultList = q.getResultList();
-            Ixp itm= new Ixp();
+            Ixp itm = new Ixp();
             if (!resultList.isEmpty()) {
                 itm = resultList.get(0);
             }
-                itm.setCinterno(cinterno);
-                itm.setNit(NIT);
-                itm.setPrecio(new Double(precio));
-                if (resultList.isEmpty()) {
-                    ixpCo.create(itm);
-                } else {
-                    ixpCo.edit(itm);
-                }
-                hecho = true;
-            
+            itm.setCinterno(cinterno);
+            itm.setNit(NIT);
+            itm.setPrecio(new Double(precio));
+            if (resultList.isEmpty()) {
+                ixpCo.create(itm);
+            } else {
+                ixpCo.edit(itm);
+            }
+            hecho = true;
+
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -353,7 +355,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             q.setParameter("nit", NIT);
             IxpJpaController ixpCo = new IxpJpaController(emf);
             List<Ixp> resultList = q.getResultList();
-            Ixp itm= new Ixp();
+            Ixp itm = new Ixp();
             if (!resultList.isEmpty()) {
                 itm = resultList.get(0);
                 itm.setCinterno(cinterno);
@@ -361,7 +363,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 itm.setPrecio(new Double(precio));
                 ixpCo.destroy(itm.getId());
             }
-                hecho = true;
+            hecho = true;
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -1083,7 +1085,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             Query q = em.createNamedQuery("Itxsol.findSol_Item");
             q.setParameter("numSol", numsol);
             ItxsolJpaController con = new ItxsolJpaController(emf);
-            int indexProv=0;
+            int indexProv = 0;
+            ArrayList<ItemInventario> itemsAprobado = this.getItemsAprobado(sol.getNum_sol(), "NO");
             for (ItemInventario item : items) {
                 ItemJpaController itemJpaController = new ItemJpaController(emf);
                 Item findItem = itemJpaController.findItem(item.getNumero());
@@ -1094,18 +1097,16 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 Itxsol found = con.findItxsol(get.getId());
                 found.setAprobado("SI");
                 found.setCantidadaprobada(new Double(item.getCantidadSolicitada()));
+                found.setGenerado("NO");
+                found.setNitProveedor(proveedor.get(indexProv));
                 con.edit(found);
                 itxActualizado = true;
                 itemJpaController.edit(findItem);
-                System.out.println(proveedor.get(indexProv));
-                System.out.println(proveedor.size());
                 this.asociarItem(item.getNumero(), proveedor.get(indexProv), Float.toString(item.getPrecio()));
                 indexProv++;
             }
-            q = em.createNamedQuery("Itxsol.findByNumSol");
-            q.setParameter("numSol", numsol);
-            List resultList = q.getResultList();
-            if (itxActualizado && resultList.size() == items.size()) {
+
+            if (itemsAprobado.size() == items.size()) {
                 solicitud.setRevisado("SI");
                 contr.edit(solicitud);
             }
@@ -1146,7 +1147,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     }
 
     @Override
-    public boolean desaprobarItems(ArrayList<ItemInventario> itemsSolicitud, solicitudPr sol, String proveedor) throws RemoteException {
+    public boolean desaprobarItems(ArrayList<ItemInventario> itemsSolicitud, solicitudPr sol, ArrayList<String> proveedor) throws RemoteException {
         boolean itxActualizado = false;
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ArrayList<ItemInventario> itemsAprobado = this.getItemsAprobado(sol.getNum_sol(), "SI");
@@ -1163,6 +1164,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             Query q = em.createNamedQuery("Itxsol.findSol_Item");
             q.setParameter("numSol", sol.getNum_sol());
             ItxsolJpaController con = new ItxsolJpaController(emf);
+            int indexProv = 0;
             for (ItemInventario item : itemsAEditar) {
                 ItemJpaController itemJpaController = new ItemJpaController(emf);
                 Item findItem = itemJpaController.findItem(item.getNumero());
@@ -1173,24 +1175,23 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 Itxsol found = con.findItxsol(get.getId());
                 found.setAprobado("NO");
                 found.setCantidadaprobada(0.0);
-
+                found.setGenerado("NO");
+                found.setNitProveedor("");
                 con.edit(found);
-
                 itxActualizado = true;
                 itemJpaController.edit(findItem);
-                this.desasociarItem(item.getNumero(), proveedor, Float.toString(item.getPrecio()));
+                this.desasociarItem(item.getNumero(), proveedor.get(indexProv), Float.toString(item.getPrecio()));
+                indexProv++;
             }
-            ArrayList<ItemInventario> listado = this.getItemsAprobado(sol.getNum_sol(), "");
-            if (listado.size() == itemsSolicitud.size()) //Desaprobar todos
-            {
-                SolicitudPrJpaController s = new SolicitudPrJpaController(emf);
-                SolicitudPr found = s.findSolicitudPr(new Double(sol.getNum_sol().toString()));
-                found.setRevisado("NO");
-                s.edit(found);
-            }
+            SolicitudPrJpaController s = new SolicitudPrJpaController(emf);
+            SolicitudPr found = s.findSolicitudPr(new Double(sol.getNum_sol().toString()));
+            found.setRevisado("NO");
+            s.edit(found);
+
         } catch (Exception ex) {
             Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
         }
+        emf.close();
         return itxActualizado;
     }
 
@@ -1202,8 +1203,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      * @throws RemoteException
      */
     @Override
-    public String getCantAprobada(String numSol, String cinterno) throws RemoteException
-    {
+    public String getCantAprobada(String numSol, String cinterno) throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
         ItemJpaController itm = new ItemJpaController(emf);
@@ -1215,8 +1215,100 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         for (Itxsol r : resultList) {
             System.out.println(r.getCinterno().getCinterno());
         }
+        emf.close();
         return resultList.get(0).getCantidadaprobada().toString();
     }
+
+    @Override
+    public ArrayList<proveedor> getProveedoresConSolicitudes(String generado) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itxsol.findProveedorByGenerado");
+        q.setParameter("generado", "%" + generado + "%");
+        ArrayList<proveedor> listaProveedores = new ArrayList<>();
+        List<String> resultList = q.getResultList();
+        if (!resultList.isEmpty()) {
+            for (String i : resultList) {
+                proveedor datosProveedor = this.getDatosProveedor(i);
+                ArrayList<ItemInventario> itemsAsociados = this.getItemxProveedorSolicitudes(i);
+                if (!itemsAsociados.isEmpty()) {
+                    datosProveedor.setItemAsociado(itemsAsociados);
+                } else {
+                    datosProveedor.setItemAsociado(new ArrayList<ItemInventario>());
+                }
+                listaProveedores.add(datosProveedor);
+            }
+            emf.close();
+            return listaProveedores;
+        } else {
+            emf.close();
+            return null;
+        }
+
+    }
+
+    public ArrayList<ItemInventario> getItemxProveedorSolicitudes(String proveedor) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itxsol.findItemByProveedor");
+        q.setParameter("nit", proveedor);
+        List<Itxsol> resultList = q.getResultList();
+        ArrayList<ItemInventario> listaItems = new ArrayList<>();
+        for (Itxsol i : resultList) {
+            Item cinterno = i.getCinterno();
+            ItemInventario EntityToItem = cinterno.EntityToItem(cinterno);
+            EntityToItem.setNumSolAsociado(Double.toString(i.getNumSol()));
+            EntityToItem.setCantidadAprobada(i.getCantidadaprobada().floatValue());
+            listaItems.add(EntityToItem);
+        }
+        if (!resultList.isEmpty()) {
+            emf.close();
+            return listaItems;
+        } else {
+            emf.close();
+            return null;
+        }
+    }
+
+    //Ordenes de Compra
+    @Override
+    public Double generarOCompra(ArrayList<ItemInventario> listaItems,String idAo) throws RemoteException
+    {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        OrdencompraJpaController oCompra = new OrdencompraJpaController(emf);
+        Ordencompra ordencompra = new Ordencompra();
+        ordencompra.setAoId(new Double(idAo));
+        oCompra.create(ordencompra);
+        Query qOcompra = em.createNamedQuery("Ordencompra.findByAoId");
+        qOcompra.setParameter("aoId", new Double(idAo));
+        Ordencompra get = (Ordencompra) qOcompra.getResultList().get(0);
+        Query q = em.createNamedQuery("Itxsol.findByNumsolAndCinterno");
+        ItxsolJpaController contr=  new ItxsolJpaController(emf);
+        for (ItemInventario i : listaItems) {
+            try {
+                q.setParameter("numSol", new Double(i.getNumSolAsociado()));
+                q.setParameter("cinterno", new ItemJpaController(emf).findItem(i.getNumero()));
+                List<Itxsol> resultList = q.getResultList();
+                Itxsol findItxsol = contr.findItxsol(resultList.get(0).getId());
+                findItxsol.setGenerado("SI");
+                contr.edit(findItxsol);
+            } catch (Exception ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        emf.close();
+        return get.getNumOrden();
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     //Datos formatos
     /**
@@ -1268,7 +1360,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
         } catch (SQLException ex) {
             System.out.println("Error funcion \"Item por Proveedor \"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -1324,7 +1418,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
         } catch (SQLException ex) {
             System.out.println("Error funcion \"Item por Proveedor \"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -1423,7 +1519,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
         } catch (SQLException ex) {
             System.out.println("Error función \"tablaCotizacionesIXP\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -1482,7 +1580,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             act = true;
         } catch (SQLException ex) {
             System.out.println("Error funcion \"generar cotizacion\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -1536,7 +1636,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         } catch (SQLException ex) {
             System.out.println("Error funcion \"revisar solicitud\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -1604,8 +1706,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.executeUpdate("drop table part1;");
             ps.executeUpdate("drop view part2;");
             ps.executeUpdate("drop view part3;");
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
             System.out.println("Error en la función \"Crear getCotizaciones\"");
         } finally {
 
@@ -1656,7 +1760,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             this.actCot(ap, par);
         } catch (SQLException ex) {
             System.out.println("Error en el metodo \"aprobar\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -1702,7 +1808,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             validacion = true;
         } catch (SQLException ex) {
             System.out.println("Error metodo \"actCot\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -1738,8 +1846,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         if (!xls.exists()) {
             try {
                 xls.createNewFile();
+
             } catch (IOException ex) {
-                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Usuario.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
         Workbook libro = new HSSFWorkbook();
@@ -1831,7 +1941,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             archivo.close();
 
         } catch (IOException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
         return xls;
@@ -1944,8 +2055,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         if (!xls.exists()) {
             try {
                 xls.createNewFile();
+
             } catch (IOException ex) {
-                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(Usuario.class
+                        .getName()).log(Level.SEVERE, null, ex);
             }
         }
         Workbook libro = new HSSFWorkbook();
@@ -2029,7 +2142,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
         } catch (IOException ex) {
             System.out.println("Error funcion\"Imprimir Inventario\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         }
 
         return xls;
@@ -2067,8 +2182,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 ps.executeUpdate();
             }
             valido = true;
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2113,9 +2230,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             for (itemsOrdenCompra p : pedido) {
                 ps.setBigDecimal(1, p.getId_cotizacion());
                 ps.executeUpdate();
+
             }
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2159,8 +2278,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.executeUpdate();
             this.updateCantidad(d.getCinterno(), d.getCantidad() * -1);
             valido = true;
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2204,8 +2325,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.setString(2, cinterno);
             ps.executeUpdate();
             updated = true;
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2276,8 +2399,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 ps.executeUpdate();
             }
             valido = true;
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2322,9 +2447,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             rs = ps.executeQuery();
             while (rs.next()) {
                 itm = new ItemInventario(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getFloat(5), rs.getFloat(6), rs.getString(7), rs.getString(8), "", 0);
+
             }
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2377,9 +2504,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 item = new itemRecep(rs.getString(4), rs.getString(7), rs.getFloat(5), rs.getFloat(6));
                 articulos.add(item);
                 rec.setArticulos(articulos);
+
             }
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2446,8 +2575,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.executeUpdate("drop view gInforme1;");
             ps.executeUpdate("drop view gInforme2;");
             ps.executeUpdate("drop view gInforme3;");
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2487,8 +2618,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             ps.executeUpdate();
             this.actCot(ap, "NO");
             validacion = true;
+
         } catch (SQLException | RemoteException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
             System.out.println("Error en el metodo \"eliminar aprobacion\"");
         } finally {
 
@@ -2537,7 +2670,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             //System.out.println(rs.getFloat(1));
         } catch (SQLException ex) {
             System.out.println("Error en la funcion \"getCantAprobada\"");
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger
+                    .getLogger(Usuario.class
+                            .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2595,8 +2730,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             aux.setArticulos(articulos);
             ps.executeUpdate("drop view datosItem1_" + numSol + ";");
             ps.executeUpdate("drop view datosItem2_" + numSol + ";");
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2649,9 +2786,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 System.out.println(fila.getInventario());
                 System.out.println(fila.getDescripcion());
                 System.out.println(fila.getEmpleado());
+
             }
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2694,9 +2833,11 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 c.setTime(rs.getDate(6));
                 fila = new informeDescargos(rs.getString(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), c);
                 listado.add(fila);
+
             }
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2746,8 +2887,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
             archivo.setProveedores(matrizProv);
             fdc_001.toString(archivo);
+
         } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
@@ -2787,7 +2930,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             sector = this.getDatosUsuario(id.toString()).getLab();
 
         } catch (RemoteException ex) {
-            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         }
 
         try {
