@@ -29,6 +29,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Recepcion.findAll", query = "SELECT r FROM Recepcion r"),
+    @NamedQuery(name = "Recepcion.findByNumorden", query = "SELECT r FROM Recepcion r WHERE r.numOrden = :numorden"),
     @NamedQuery(name = "Recepcion.findByFechallegada", query = "SELECT r FROM Recepcion r WHERE r.fechallegada = :fechallegada"),
     @NamedQuery(name = "Recepcion.findByFechavencimiento", query = "SELECT r FROM Recepcion r WHERE r.fechavencimiento = :fechavencimiento"),
     @NamedQuery(name = "Recepcion.findByCcalidad", query = "SELECT r FROM Recepcion r WHERE r.ccalidad = :ccalidad"),
@@ -36,6 +37,9 @@ import javax.xml.bind.annotation.XmlRootElement;
     @NamedQuery(name = "Recepcion.findByMverificacion", query = "SELECT r FROM Recepcion r WHERE r.mverificacion = :mverificacion"),
     @NamedQuery(name = "Recepcion.findByPrecioanterior", query = "SELECT r FROM Recepcion r WHERE r.precioanterior = :precioanterior")})
 public class Recepcion implements Serializable {
+
+    @Column(name = "observaciones")
+    private String observaciones;
 
     private static final long serialVersionUID = 1L;
     @Id
@@ -167,6 +171,14 @@ public class Recepcion implements Serializable {
     @Override
     public String toString() {
         return "Entities.Recepcion[ fechallegada=" + fechallegada + " ]";
+    }
+
+    public String getObservaciones() {
+        return observaciones;
+    }
+
+    public void setObservaciones(String observaciones) {
+        this.observaciones = observaciones;
     }
     
 }

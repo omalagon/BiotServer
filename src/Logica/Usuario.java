@@ -6,6 +6,7 @@
 package Logica;
 
 import Controllers.DatosformatosJpaController;
+import Controllers.EvaluacionprovJpaController;
 import Controllers.ItemJpaController;
 import Controllers.ItmxordenJpaController;
 import Controllers.ItxsolJpaController;
@@ -13,6 +14,7 @@ import Controllers.IxpJpaController;
 import Controllers.OrdencompraJpaController;
 import Controllers.PermisosJpaController;
 import Controllers.ProveedorJpaController;
+import Controllers.RecepcionJpaController;
 import Controllers.SolicitudPrJpaController;
 import Controllers.TablamostrarJpaController;
 import Controllers.UsuarioJpaController;
@@ -20,6 +22,7 @@ import Controllers.exceptions.IllegalOrphanException;
 import Controllers.exceptions.NonexistentEntityException;
 import Controllers.exceptions.PreexistingEntityException;
 import Entities.Datosformatos;
+import Entities.Evaluacionprov;
 import Entities.Item;
 import Entities.Itmxorden;
 import Entities.Itxsol;
@@ -27,6 +30,7 @@ import Entities.Ixp;
 import Entities.Ordencompra;
 import Entities.Permisos;
 import Entities.Proveedor;
+import Entities.Recepcion;
 import Entities.SolicitudPr;
 import Entities.Tablamostrar;
 import EstructurasAux.BuscarUsuario;
@@ -36,6 +40,7 @@ import EstructurasAux.aprobacion;
 import EstructurasAux.cotizaciones;
 import EstructurasAux.datosFormatos;
 import EstructurasAux.descargo;
+import EstructurasAux.evProv;
 import EstructurasAux.fdc_001;
 import EstructurasAux.informeDescargos;
 import EstructurasAux.itemRecep;
@@ -1143,7 +1148,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         if (!resultList.isEmpty()) {
             for (Ixp ixp : resultList) {
                 proveedor datosProveedor = this.getDatosProveedor(ixp.getNit());
-                retorno.add(new itemxproveedor(datosProveedor.getNombre(), new Float(ixp.getPrecio()), ixp.getCinterno()));
+                itemxproveedor itx =new itemxproveedor(datosProveedor.getNombre(), new Float(ixp.getPrecio()), ixp.getCinterno());
+                itx.setNIT(ixp.getNit());
+                retorno.add(itx);
             }
         }
         emf.close();
@@ -1305,6 +1312,8 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 itemOrden = new Itmxorden(get.getNumOrden().intValue(), i.getCantidadAprobada(), i.getPrecio());
                 itemOrden.setItemCinterno(new ItemJpaController(emf).findItem(i.getNumero()));
                 itemOrden.setProveedorNit(new ProveedorJpaController(emf).findProveedor(findItxsol.getNitProveedor()));
+                itemOrden.setNumSolAsociado(new Double(i.getNumSolAsociado()));
+                itemOrden.setRecibido("NO");
                 contrOrden.create(itemOrden);
                 Tablamostrar tablamostrar = new Tablamostrar();
                 tablamostrar.setIdArchivo(get.getNumOrden());
@@ -1392,6 +1401,24 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return cadenaFecha;
     }
 
+    @Override
+    public int buscarOrdenByNumSol(ItemInventario i, String proveedor, String numSol) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itmxorden.findByAllParameters2");
+        q.setParameter("nit", new ProveedorJpaController(emf).findProveedor(proveedor));
+        q.setParameter("caprobada", i.getCantidadAprobada());
+        q.setParameter("precio", i.getPrecio());
+        q.setParameter("cinterno", new ItemJpaController(emf).findItem(i.getNumero()));
+        q.setParameter("numsol", new Double(numSol));
+        List<Itmxorden> resultList = q.getResultList();
+        double numorden = -1;
+                if(resultList!=null && !resultList.isEmpty() && resultList.get(0)!=null)
+                    resultList.get(0).getNumorden();
+        emf.close();
+        return new Double(numorden).intValue();
+    }
+    
     //Descargos
     /**
      *
@@ -1441,6 +1468,147 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
         return valido;
+    }
+
+    /**
+     *
+     * @param numOrden
+     * @param idRec
+     * @param articulos
+     * @return
+     * @throws RemoteException
+     *
+     * Función para recibir el pedido y registrarlo en la base de datos.
+     */
+    @Override
+    public boolean recibirPedido(BigDecimal numOrden, String idRec, ArrayList<itemRecep> articulos) throws RemoteException {
+        boolean valido = false;
+        try {
+            EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+            Recepcion r = new Recepcion();
+            RecepcionJpaController contr = new RecepcionJpaController(emf);
+            Ordencompra orden = new Ordencompra();
+            for (itemRecep a : articulos) {
+
+                orden = new OrdencompraJpaController(emf).findOrdencompra(new Double(numOrden.toString()));
+                ItemJpaController itemJpaController = new ItemJpaController(emf);
+                Item findItem = itemJpaController.findItem(a.getCinterno());
+                findItem.setCantidad(findItem.getCantidad() + a.getcAprobada());
+                findItem.setCcalidad(a.getcCalidad());
+                findItem.setCesp(a.getcEsp());
+                itemJpaController.edit(findItem);
+                r = new Recepcion(a.getfLlegada());
+                r.setFechavencimiento(a.getfVencimiento());
+                r.setCcalidad(a.getcCalidad());
+                r.setCesp(a.getcEsp());
+                r.setMverificacion(a.getmVerificacion().toString());
+                r.setCinterno(findItem);
+                r.setIdUsuario(new UsuarioJpaController(emf).findUsuario(idRec));
+                r.setNumOrden(orden);
+                r.setPrecioanterior(new Double(a.getPrecio()));
+                r.setObservaciones(a.getObs());
+                contr.create(r);
+                EntityManager em = emf.createEntityManager();
+                Query q = em.createNamedQuery("Itmxorden.findByNumorden_item");
+                q.setParameter("numorden", orden.getNumOrden());
+                ItmxordenJpaController itmcontrol = new ItmxordenJpaController(emf);
+                q.setParameter("cinterno", findItem);
+                List<Itmxorden> resultList = q.getResultList();
+                Itmxorden findItmxorden = itmcontrol.findItmxorden(resultList.get(0).getIdOCompra());
+                findItmxorden.setRecibido("SI");
+                itmcontrol.edit(findItmxorden);
+                valido = true;
+            }
+            emf.close();
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return valido;
+    }
+
+    /**
+     *
+     * @param numOrden
+     * @param idRec
+     * @param articulos
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public boolean devolverPedido(BigDecimal numOrden, String idRec, ArrayList<itemRecep> articulos) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itmxorden.findByNumorden");
+        q.setParameter("numorden", new Double(numOrden.toString()));
+        q.setParameter("recibido", "SI");
+        List<Itmxorden> resultList = q.getResultList();
+        ItmxordenJpaController itm = new ItmxordenJpaController(emf);
+        for (Itmxorden i : resultList) {
+            for (itemRecep rec : articulos) {
+                if (i.getItemCinterno().getCinterno().equalsIgnoreCase(rec.getCinterno())) {
+                    try {
+                        i.setRecibido("NO");
+                        itm.edit(i);
+                    } catch (Exception ex) {
+                        Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        }
+        q = em.createNamedQuery("Recepcion.findByNumorden");
+        q.setParameter("numorden", new Ordencompra(new Double(numOrden.toString())));
+        List<Recepcion> recepcion = q.getResultList();
+        RecepcionJpaController contrRec = new RecepcionJpaController(emf);
+        for (Recepcion r : recepcion) {
+            for (itemRecep rec : articulos) {
+                if (rec.getCinterno().equalsIgnoreCase(rec.getCinterno())) {
+                    try {
+                        contrRec.destroy(r.getFechallegada());
+                    } catch (NonexistentEntityException ex) {
+                        Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+        }
+        return true;
+
+    }
+
+    /**
+     *
+     * @param e
+     * @throws RemoteException
+     */
+    @Override
+    public void evaluarProv(evProv e) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        Evaluacionprov ev = new Evaluacionprov(e.getNit(), e.getNumorden(), e.getEv1(), e.getEv2(), e.getEv3(), e.getEv4(), e.getEv5(), e.getEv6(), e.getEv7(), e.getEv8());
+        EvaluacionprovJpaController contr = new EvaluacionprovJpaController(emf);
+        contr.create(ev);
+        emf.close();
+    }
+
+    /**
+     *
+     * @param e
+     * @throws RemoteException
+     */
+    @Override
+    public void borrarEvaluacion(evProv e) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Evaluacionprov.findByNumorden");
+        q.setParameter("numorden", e.getNumorden());
+        List<Evaluacionprov> ev = q.getResultList();
+        EvaluacionprovJpaController contr = new EvaluacionprovJpaController(emf);
+        for (Evaluacionprov ee : ev) {
+            try {
+                contr.destroy(ee.getId());
+            } catch (NonexistentEntityException ex) {
+                Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        emf.close();
     }
 
     /**
@@ -1500,1040 +1668,40 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     /**
      *
-     * @param nit
-     * @param cinterno
-     * @return ArayList
-     * @throws RemoteException
-     *
-     * Genera un listado con los ítems asociados a un proveedor en particular
-     */
-    @Override
-    public ArrayList<ItemInventario> itemxProv(String nit, String cinterno) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select  item.cinterno, item.descripcion, item.presentacion, item.cantidad, item.precio, item.ccalidad, item.cesp"
-                + " from ixp, proveedor, item"
-                + " where ixp.cinterno =item.cinterno and ixp.nit = proveedor.nit and proveedor.nit= ? and item.cinterno =?;";
-        ItemInventario item = null;
-        ArrayList<ItemInventario> lista = new ArrayList<>();
-        System.out.println(statement);
-
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, nit);
-            ps.setString(2, cinterno);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                item = new ItemInventario(rs.getString(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getFloat(5), rs.getString(6), "", "", rs.getString(7));
-                lista.add(item);
-            }
-
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"Item por Proveedor \"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-
-        }
-        return lista;
-    }
-
-    /**
-     *
-     * @param numSol
-     * @return solicitudPr
-     * @throws RemoteException
-     *
-     * Busca los datos de una solicitud en particular
-     */
-    @Override
-    public solicitudPr getSolicitud_NumSol(BigDecimal numSol) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        solicitudPr solicitud = null;
-        GregorianCalendar fecha = new GregorianCalendar();
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select fecha, OBSERVACIONES, nombre, lab, id from SOLICITUD_PR, usuario where usuario.ID = SOLICITUD_PR.id_solicitante and num_sol = ?;";
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, numSol);
-            rs = ps.executeQuery();
-            rs.next();
-            fecha.setTime(rs.getDate(1));
-            solicitud = new solicitudPr(fecha, rs.getString(2), numSol, rs.getString(5), rs.getString(3), rs.getString(4));
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"get solicitud numSol\"");
-            System.out.println(ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return solicitud;
-    }
-
-    /**
-     *
-     * @param cinterno
-     * @return ArrayList
-     *
-     * Genera una lista con los proveedores asociados a un ítem al momento de
-     * realziar una cotización.
-     */
-    @Override
-    public ArrayList<itemxproveedor> tablaCotizacionesIXP(String cinterno) {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select  p.nit, p.nombre, i.CINTERNO, it.inventario, i.precio "
-                + "from ixp i, proveedor p, item it where i.cinterno = ? and  i.NIT = p.NIT and it.cinterno = i.cinterno;";
-        itemxproveedor item = null;
-        ArrayList<itemxproveedor> lista = new ArrayList<>();
-
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, cinterno);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                item = new itemxproveedor(rs.getString(2), rs.getFloat(5), rs.getString(1), rs.getString(3), rs.getString(4));
-                lista.add(item);
-            }
-
-        } catch (SQLException ex) {
-            System.out.println("Error función \"tablaCotizacionesIXP\"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-
-        }
-        return lista;
-    }
-
-    /**
-     *
-     * @param idAO
-     * @param proveedorNit
-     * @param codigo
-     * @param lab
-     * @param numSol
-     * @param precio
-     * @return
-     * @throws RemoteException
-     *
-     * Envía la cotización a la base de datos, para ser posteriormente revisada.
-     */
-    @Override
-    public boolean generarCotizacion(String idAO, String proveedorNit, String codigo, String lab, BigDecimal numSol, float precio) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        ArrayList<solicitudPr> Revisadas = new ArrayList<>();
-        solicitudPr rev = null;
-        boolean act = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "INSERT INTO COTIZACION_PROD "
-                    + "(id_ao,nit, cinterno,num_sol, precio_u)"
-                    + " VALUES (?,?,?,?,?)";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, idAO);
-            ps.setString(2, proveedorNit);
-            ps.setString(3, codigo);
-            ps.setBigDecimal(4, numSol);
-            ps.setFloat(5, precio);
-            ps.executeUpdate();
-            act = true;
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"generar cotizacion\"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return act;
-
-    }
-
-    /**
-     *
-     * @param id
-     * @param numSol
-     * @param ope
-     * @return boolean
-     * @throws RemoteException
-     *
-     * Actualiza el parámetro "Revisado" de la solicitud.
-     */
-    @Override
-    public boolean RevisarSolicitud(String id, BigDecimal numSol, String ope) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        String statement;
-        ArrayList<solicitudPr> Revisadas = new ArrayList<>();
-        solicitudPr rev = null;
-        boolean act = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "UPDATE SOLICITUD_PR SET REVISADO = ?, id_ao = ? WHERE num_sol = ?";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, ope);
-            ps.setString(2, id);
-            ps.setBigDecimal(3, numSol);
-            ps.executeUpdate();
-            act = true;
-            if (ope.equalsIgnoreCase("NO")) {
-                eliminarAprobacion(numSol);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"revisar solicitud\"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return act;
-    }
-
-    /**
-     *
-     * @param parametro
-     * @return ArrayList
-     * @throws RemoteException
-     *
-     * Genera la lista de cotizaciones revisadas o no, dependiendo del parámetro
-     * de entrada.
-     */
-    @Override
-    public ArrayList<cotizaciones> getCotizaciones(String parametro) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        Connection con = null;
-        String statement;
-        String statement2;
-        String statement3;
-        String statement4;
-        String statement5;
-        String statement6;
-        ArrayList<cotizaciones> cot = new ArrayList<>();
-        cotizaciones c = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "create table part1 (select  cod.id as cotID, u.nombre as AONom, r.nombre as RANom, cod.nit as pNit, cod.cinterno as itm, cod.precio_u as pre, sol.num_sol as nSol, cod.revisada as revi\n"
-                    + "from cotizacion_prod cod, solicitud_pr sol, usuario u, usuario r\n"
-                    + "where sol.num_sol = cod.num_sol and u.id =cod.id_ao and u.id = sol.id_ao and sol.id_solicitante = r.id and cod.enorden = 'NO');";
-            statement2 = "create view part2 as (select cotid, aonom, ranom, pnit, itm, pre, nsol, sum(cantidadsol) from part1, itxsol where nsol = itxsol.num_sol and itm = itxsol.cinterno and revi = '" + parametro + "' )";
-            statement3 = "create view part3 as (select cotid, aonom, ranom, pnit, itm, pre, nsol, cantidadsol from part1, itxsol where nsol = itxsol.num_sol and itm = itxsol.cinterno and revi = '" + parametro + "' )";
-            statement4 = "select * from part2\n"
-                    + "union\n"
-                    + "select * from part3 where part3.cotid <>(select cotid from part2) order by nsol;";
-
-            ps = con.prepareStatement(statement);
-            ps.executeUpdate(statement);
-            ps = con.prepareStatement(statement2);
-            ps.executeUpdate(statement2);
-            ps = con.prepareStatement(statement3);
-            ps.executeUpdate(statement3);
-            ps = con.prepareStatement(statement4);
-            //ps.setString(1, parametro);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                c = new cotizaciones(rs.getBigDecimal(1), rs.getString(2), rs.getString(3), rs.getString(4), "", rs.getString(5), rs.getFloat(6), rs.getBigDecimal(7), rs.getFloat(8), new Float(-1));
-                cot.add(c);
-                System.out.println("hola");
-            }
-            ps.executeUpdate("drop table part1;");
-            ps.executeUpdate("drop view part2;");
-            ps.executeUpdate("drop view part3;");
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-            System.out.println("Error en la función \"Crear getCotizaciones\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-        return cot;
-    }
-
-    /**
-     *
-     * @param ap
-     * @param par
-     * @return
-     * @throws RemoteException
-     *
-     * Aprueba la cantidad de cada solicitud-cotización
-     */
-    @Override
-    public boolean aprobar(aprobacion ap, String par) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        boolean validacion = false;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "";
-
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "INSERT INTO APROBADOS (id_cot, cinterno, caprobada, fechaaprob, id_da) VALUES (?,?,?,?,?)";
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, ap.getIdCot());
-            ps.setString(2, ap.getCodigo());
-            ps.setFloat(3, ap.getAprobado());
-            ps.setDate(4, new Date(ap.getFecha().getTimeInMillis()));
-            ps.setString(5, ap.getIdDA());
-            ps.executeUpdate();
-            validacion = true;
-            this.actCot(ap, par);
-        } catch (SQLException ex) {
-            System.out.println("Error en el metodo \"aprobar\"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return validacion;
-    }
-
-    /**
-     *
-     * @param ap
-     * @param parametro
-     * @return
-     * @throws RemoteException Actualiza el estado de la cotización.
-     */
-    @Override
-    public boolean actCot(aprobacion ap, String parametro) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        boolean validacion = false;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "";
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "UPDATE COTIZACION_PROD SET REVISADA = ? where id = ?  and cinterno =?";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, parametro);
-            ps.setBigDecimal(2, ap.getIdCot());
-            ps.setString(3, ap.getCodigo());
-            ps.executeUpdate();
-            validacion = true;
-        } catch (SQLException ex) {
-            System.out.println("Error metodo \"actCot\"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return validacion;
-    }
-
-    /**
-     *
-     * @param ruta
-     * @return
-     *
-     * Genera un archivo con la información de todos los proveedores
-     */
-    @Override
-    public File imprimirProveedores(String ruta) {
-        DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd__HH_mm_ss");
-        java.util.Date date = new java.util.Date();
-
-        File xls = new File(ruta + "\\ListaProveedores" + dateFormat.format(date) + ".xls");
-        if (!xls.exists()) {
-            try {
-                xls.createNewFile();
-
-            } catch (IOException ex) {
-                Logger.getLogger(Usuario.class
-                        .getName()).log(Level.SEVERE, null, ex);
-            }
-        }
-        Workbook libro = new HSSFWorkbook();
-        FileOutputStream archivo;
-        Sheet hoja;
-        ArrayList<proveedor> todos;
-        try {
-            xls.createNewFile();
-            archivo = new FileOutputStream(xls);
-            hoja = libro.createSheet("Lista_Proveedores");
-            todos = this.todosProveedores();
-            int i = 0;
-            for (int j = 0; j < 8; j++) {
-                Row fila = hoja.createRow(i);
-                Cell aux;
-                if (i == 0) {
-                    aux = fila.createCell(j);
-                    aux.setCellValue("NIT");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Nombre");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Dirección");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Teléfono");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Fax");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Celular");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Correo");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Contacto");
-                    j++;
-                    i++;
-                }
-            }
-
-            for (proveedor t : todos) {
-                Row fila = hoja.createRow(i);
-                Cell aux;
-                for (int j = 0; j < 7; j++) {
-
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getNIT());
-                    hoja.autoSizeColumn(j);
-
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getNombre());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getDireccion());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getTelefono());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getTelefax());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getCelular());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getCorreo());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getContacto());
-                    hoja.autoSizeColumn(j);
-                    j++;
-
-                }
-                i++;
-            }
-
-            libro.write(archivo);
-            archivo.close();
-
-        } catch (IOException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        }
-
-        return xls;
-    }
-
-    /**
-     *
-     * @param idAo
-     * @throws RemoteException Crea la orden de compra en la base de datos.
-     */
-    @Override
-    public void crearOrdenCompra(String idAo) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "INSERT INTO ORDENCOMPRA (AO_ID) VALUES (?)";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, idAo);
-            ps.executeUpdate();
-
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"crear OrdenCompra\"");
-            System.out.println(ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-    }
-
-    /**
-     *
+     * @param numorden
      * @param id
      * @return
      * @throws RemoteException
      *
-     * Verifica que la insersión de la orden de compra haya sido exitosa
+     * Retorna los datos completos de una orden de compra.
      */
     @Override
-    public BigDecimal OrdenValida(String id) throws RemoteException {
+    public recepcionProd getDatosRec(BigDecimal numorden, String id) throws RemoteException {
+        recepcionProd rec = null;
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        BigDecimal valida = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select NUM_ORDEN from ORDENCOMPRA where AO_id = ? order by NUM_ORDEN desc";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, id);
-            rs = ps.executeQuery();
-            rs.next();
-            if (rs.getRow() != 0) {
-                valida = rs.getBigDecimal(1);
-            }
-
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"solicitud valida\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itmxorden.findByNumorden");
+        q.setParameter("numorden", new Double(numorden.toString()));
+        q.setParameter("recibido", "NO");
+        List<Itmxorden> resultList = q.getResultList();
+        ArrayList<itemRecep> items = new ArrayList<>();
+        proveedor p = new proveedor();
+        for (Itmxorden i : resultList) {
+            Proveedor prov = i.getProveedorNit();
+            p = new proveedor(prov.getNit(), prov.getNombre(), prov.getDir(), prov.getTel(), prov.getFax(), prov.getCiudad(), prov.getCelular(), prov.getCorreo(), p.getContacto());
+            Item itm = i.getItemCinterno();
+            items.add(new itemRecep(itm.getCinterno(), "", new Float(i.getCaprobada()), new Float(i.getPrecioU())));
         }
-
-        return valida;
-    }
-
-    /**
-     *
-     * @param ruta
-     * @return
-     * @throws RemoteException
-     *
-     * Genera un archivo con el listado de items en la base de datos.
-     */
-    @Override
-    public File imprimirInventario(String ruta) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        DateFormat dateFormat = new SimpleDateFormat("yyyy_MM_dd__HH_mm_ss");
-        java.util.Date date = new java.util.Date();
-
-        File xls = new File(ruta + "\\Inventario" + dateFormat.format(date) + ".xls");
-        if (!xls.exists()) {
-            try {
-                xls.createNewFile();
-
-            } catch (IOException ex) {
-                Logger.getLogger(Usuario.class
-                        .getName()).log(Level.SEVERE, null, ex);
-            }
+        Query qq = em.createNamedQuery("Ordencompra.findByNumOrden");
+        qq.setParameter("numOrden", new Double(numorden.toString()));
+        if (qq.getResultList().isEmpty()) {
+            return null;
+        } else {
+            Ordencompra o = (Ordencompra) qq.getResultList().get(0);
+            emf.close();
+            rec = new recepcionProd(numorden, p, id, items, o.getObservaciones());
+            return rec;
         }
-        Workbook libro = new HSSFWorkbook();
-        FileOutputStream archivo;
-        Sheet hoja;
-        ArrayList<ItemInventario> todos;
-        try {
-            archivo = new FileOutputStream(xls);
-            hoja = libro.createSheet("Inventario");
-            todos = this.itemInventarioAdmin();
-            int i = 0;
-
-            for (int j = 0; j < 8; j++) {
-                Row fila = hoja.createRow(i);
-                Cell aux;
-                if (i == 0) {
-
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Código");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Descripción");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Presentación");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Cantidad");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Precio");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Cert. Calidad");
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue("Cump. Especificaciones");
-                    j++;
-                    i++;
-                }
-            }
-
-            for (ItemInventario t : todos) {
-                Row fila = hoja.createRow(i);
-                Cell aux;
-                for (int j = 0; j < 8; j++) {
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getNumero());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getDescripcion());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getPresentacion());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getCantidad());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getPrecio());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getcCalidad());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                    aux = fila.createCell(j);
-                    aux.setCellValue(t.getCEsp());
-                    hoja.autoSizeColumn(j);
-                    j++;
-                }
-                i++;
-            }
-
-            libro.write(archivo);
-            archivo.close();
-
-        } catch (IOException ex) {
-            System.out.println("Error funcion\"Imprimir Inventario\"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        }
-
-        return xls;
-    }
-
-    /**
-     *
-     * @param orden
-     * @param proveedor
-     * @param pedido
-     * @param Obs
-     * @return
-     * @throws RemoteException
-     *
-     * Genera el listado de ítems que se van a pedir en la orden
-     */
-    @Override
-    public boolean itemsxorden(BigDecimal orden, String proveedor, ArrayList<itemsOrdenCompra> pedido, String Obs) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "insert into itmxorden values(?,?,?,?,?,?)";
-        boolean valido = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(4, orden);
-            ps.setString(3, proveedor);
-            ps.setString(1, Obs);
-            for (itemsOrdenCompra p : pedido) {
-                ps.setString(2, p.getCinterno());
-                ps.setFloat(5, p.getCaprobada());
-                ps.setFloat(6, p.getPrecioU());
-                ps.executeUpdate();
-            }
-            valido = true;
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-        return valido;
-    }
-
-    /**
-     *
-     * @param pedido
-     * @throws RemoteException
-     *
-     * Indica si la cotización ya está en una orden de compra.
-     */
-    @Override
-    public void actualizarCotEnOrden(ArrayList<itemsOrdenCompra> pedido) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        //Actualizar Tabla Cotizacion
-        con = null;
-        ps = null;
-        rs = null;
-        String statement = "UPDATE cotizacion_prod SET `ENORDEN`='SI' WHERE `ID`=?";
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            for (itemsOrdenCompra p : pedido) {
-                ps.setBigDecimal(1, p.getId_cotizacion());
-                ps.executeUpdate();
-
-            }
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-    }
-
-    /**
-     *
-     * @param cinterno
-     * @param cantidad
-     * @return
-     * @throws RemoteException
-     *
-     * Actualiza la cantidad de un ítem en particular.
-     */
-    @Override
-    public boolean updateCantidad(String cinterno, float cantidad) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "update item set cantidad = cantidad +? where CINTERNO =?";
-        boolean updated = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setFloat(1, cantidad);
-            ps.setString(2, cinterno);
-            ps.executeUpdate();
-            updated = true;
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return updated;
-    }
-
-    /**
-     *
-     * @param numOrden
-     * @param idRec
-     * @param articulos
-     * @return
-     * @throws RemoteException
-     *
-     * Función para recibir el pedido y registrarlo en la base de datos.
-     */
-    @Override
-    public boolean recibirPedido(BigDecimal numOrden, String idRec, ArrayList<itemRecep> articulos) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "INSERT INTO RECEPCION (CINTERNO, NUM_ORDEN, FECHALLEGADA, FECHAVENCIMIENTO, CCALIDAD, CESP, MVERIFICACION, ID_USUARIO, PRECIOANTERIOR) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        boolean valido = false;
-        float precioAnterior = 0;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(2, numOrden);
-            ps.setString(8, idRec);
-            for (itemRecep articulo : articulos) {
-                ps.setString(1, articulo.getCinterno());
-                ps.setDate(3, new Date(articulo.getfLlegada().getTime()));
-                ps.setDate(4, new Date(articulo.getfVencimiento().getTime()));
-                ps.setString(5, articulo.getcCalidad());
-                ps.setString(6, articulo.getcEsp());
-                ps.setString(7, articulo.getmVerificacion().toString());
-                ps.setFloat(9, 0);
-                ps.executeUpdate();
-                this.updateCantidad(articulo.getCinterno(), articulo.getcAprobada());
-                ps = con.prepareStatement("SELECT precio from item where CINTERNO = ?");
-                ps.setString(1, articulo.getCinterno());
-                rs = ps.executeQuery();
-                rs.next();
-                precioAnterior = rs.getFloat(1);
-                ps = con.prepareStatement("UPDATE recepcion SET PRECIOANTERIOR= ? WHERE CINTERNO=?  and NUM_ORDEN=?");
-                ps.setFloat(1, precioAnterior);
-                ps.setString(2, articulo.getCinterno());
-                ps.setBigDecimal(3, numOrden);
-                ps.executeUpdate();
-                ps = con.prepareStatement("UPDATE item SET precio=?  WHERE CINTERNO=? ");
-                ps.setFloat(1, articulo.getPrecio());
-                ps.setString(2, articulo.getCinterno());
-                ps.executeUpdate();
-            }
-            valido = true;
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return valido;
-
-    }
-
-    /**
-     *
-     * @param cinterno
-     * @return
-     * @throws RemoteException
-     *
-     * Retorna los datos completos del item relacionado con el cinterno
-     * ingresado como parámetro
-     */
-    @Override
-    public ItemInventario datosCompletosItem(String cinterno) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select CINTERNO, INVENTARIO, DESCRIPCION, PRESENTACION, CANTIDAD, PRECIO, CCALIDAD, CESP from item  where CINTERNO = ? ";
-        ItemInventario itm = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, cinterno);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                itm = new ItemInventario(rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getFloat(5), rs.getFloat(6), rs.getString(7), rs.getString(8), "", 0);
-
-            }
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return itm;
     }
 
     /**
@@ -2546,51 +1714,56 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      * Retorna los datos completos de una orden de compra.
      */
     @Override
-    public recepcionProd getDatosRec(BigDecimal numorden, String id) throws RemoteException {
+    public recepcionProd getDatosPedidoRecibido(BigDecimal numorden, String id) throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select numorden, (select p.nombre from PROVEEDOR p where p.nit = PROVEEDOR_NIT),PROVEEDOR_NIT, ITEM_CINTERNO, CAPROBADA, PRECIO_U, OBS\n"
-                + "from ITMXORDEN where numorden = ?";
-        recepcionProd rec = null;
-        itemRecep item = null;
-        System.out.println(statement);
-        ArrayList<itemRecep> articulos = new ArrayList<>();
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, numorden);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                rec = new recepcionProd(numorden, null, id, null);
-                proveedor datosProveedor = this.getDatosProveedor(rs.getString(3));
-                rec.setP(datosProveedor);
-                item = new itemRecep(rs.getString(4), rs.getString(7), rs.getFloat(5), rs.getFloat(6));
-                articulos.add(item);
-                rec.setArticulos(articulos);
-
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itmxorden.findByNumorden");
+        q.setParameter("numorden", new Double(numorden.toString()));
+        q.setParameter("recibido", "SI");
+        ArrayList<itemRecep> items = new ArrayList<>();
+        List<Itmxorden> resultList = q.getResultList();
+        if (!resultList.isEmpty() || resultList != null) {
+            Itmxorden get = resultList.get(0);
+            proveedor p = new proveedor(get.getProveedorNit().getNit(), get.getProveedorNit().getNombre(), get.getProveedorNit().getDir(), get.getProveedorNit().getTel(), get.getProveedorNit().getFax(), get.getProveedorNit().getCiudad(), get.getProveedorNit().getCelular(), get.getProveedorNit().getCorreo(), get.getProveedorNit().getContacto());
+            for (Itmxorden itmxorden : resultList) {
+                Item itemCinterno = itmxorden.getItemCinterno();
+                Query qq = em.createNamedQuery("Recepcion.findByNumorden");
+                qq.setParameter("numorden", new Ordencompra(new Double(numorden.toString())));
+                List<Recepcion> recepcion = qq.getResultList();
+                for (Recepcion r : recepcion) {
+                    if (r.getCinterno().getCinterno().equalsIgnoreCase(itemCinterno.getCinterno())) {
+                        itemRecep itmRecibido = new itemRecep(itemCinterno.getCinterno(), r.getFechallegada(), r.getFechavencimiento(),
+                                r.getCcalidad(), r.getCesp(), r.getMverificacion(), r.getObservaciones(),
+                                new Float(itmxorden.getCaprobada()), new Float(r.getPrecioanterior()));
+                        items.add(itmRecibido);
+                    }
+                }
             }
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
+            recepcionProd recepcionProd = new recepcionProd(numorden, p, "", items, id);
+            return recepcionProd;
+        } else {
+            return null;
         }
-        return rec;
+    }
+
+    /**
+     *
+     * @param numorden
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public evProv getEvaluacionProv(double numorden) throws RemoteException {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Evaluacionprov.findByNumorden");
+        q.setParameter("numorden", numorden);
+        List<Evaluacionprov> resultList = q.getResultList();
+        evProv ev = null;
+        for (Evaluacionprov e : resultList) {
+            ev = new evProv(e.getNitProv(), e.getNumorden(), e.getEv1(), e.getEv2(), e.getEv3(), e.getEv4(), e.getEv5(), e.getEv6(), e.getEv7(), e.getEv8());
+        }
+        return ev;
     }
 
     /**
@@ -2661,162 +1834,6 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
         return listado;
-    }
-
-    /**
-     * *****************************************************************************************************
-     */
-    //Metodos del administrador
-    @Override
-    public boolean eliminarAprobacion(aprobacion ap) {
-        Connection con = null;
-        boolean validacion = false;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "";
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "delete from aprobados where cotizacion_id = ? and item_cinterno =?";
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, ap.getIdCot());
-            ps.setString(2, ap.getCodigo());
-            ps.executeUpdate();
-            this.actCot(ap, "NO");
-            validacion = true;
-
-        } catch (SQLException | RemoteException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-            System.out.println("Error en el metodo \"eliminar aprobacion\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return validacion;
-
-    }
-
-    @Override
-    public float getCantAprobada(cotizaciones c) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = new String();
-        float cAprobada = 0;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select caprobada "
-                    + "from APROBADOS "
-                    + "where id_cot = ? and cinterno = ?";
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, c.getCotizacionId());
-            ps.setString(2, c.getCinterno());
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                cAprobada = rs.getFloat(1);
-            }
-            System.out.println("");
-            System.out.println("");
-            System.out.println("");
-            System.out.println("");
-            //System.out.println(rs.getFloat(1));
-        } catch (SQLException ex) {
-            System.out.println("Error en la funcion \"getCantAprobada\"");
-            Logger
-                    .getLogger(Usuario.class
-                            .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        System.out.println(cAprobada);
-        return cAprobada;
-    }
-
-    @Override
-    public fdc_001 datosItem(BigDecimal numSol, fdc_001 aux) {
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        ArrayList<itemsfdc_001> articulos = new ArrayList<>();
-        itemsfdc_001 item = null;
-        String statement1 = "create view datosItem1_" + numSol + " as (select i.CANTIDAD as Cantidad, i.INVENTARIO as Lab, i.CINTERNO as Codigo, i.DESCRIPCION as Descr,it.CANTIDADSOL as CSol, i.PRESENTACION as Pres, it.NUM_SOL as NumSol from ITXSOL it \n"
-                + "left outer join ITEM i \n"
-                + "on IT.ITEM_CINTERNO = I.CINTERNO);\n";
-
-        String statement2 = "create view datosItem2_" + numSol + " as (select P.Cantidad, P.Lab, P.Codigo, P.Descr, P.CSol, P.Pres, P.NumSol, c.COTIZACION_ID  as coti, c.precio_U as precio\n"
-                + "from datosItem1_" + numSol + " p , COTIZACION_PROD c \n"
-                + "where p.Codigo = c.ITEM_CINTERNO and c.REVISADA = 'SI' and p.NumSol = c.NUM_SOL);";
-        String statement3 = "select P.Cantidad, P.Lab, P.Codigo, P.Descr, P.CSol, P.Pres,APROBADOS.CAPROBADA,  p.precio,P.NumSol,p.coti"
-                + " from datosItem2_" + numSol + " p, APROBADOS "
-                + "where p.coti = APROBADOS.COTIZACION_ID and p.numsol = ?";
-        System.out.println(statement1);
-        System.out.println(statement2);
-        System.out.println(statement3);
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement1);
-            ps.executeUpdate();
-            ps = con.prepareStatement(statement2);
-            ps.executeUpdate();
-            ps = con.prepareStatement(statement3);
-            ps.setBigDecimal(1, numSol);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                item = new itemsfdc_001(rs.getFloat(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getFloat(5), rs.getString(6), rs.getFloat(7), rs.getFloat(8), rs.getBigDecimal(9));
-                articulos.add(item);
-
-            }
-            aux.setArticulos(articulos);
-            ps.executeUpdate("drop view datosItem1_" + numSol + ";");
-            ps.executeUpdate("drop view datosItem2_" + numSol + ";");
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return aux;
-
     }
 
     /*
@@ -2922,199 +1939,42 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         return listado;
     }
 
+    /**
+     *
+     * @param cinterno
+     * @param cantidad
+     * @return
+     * @throws RemoteException
+     *
+     * Actualiza la cantidad de un ítem en particular.
+     */
     @Override
-    public fdc_001 datosGenerales(BigDecimal numSol, BigDecimal numCot) throws RemoteException {
+    public boolean updateCantidad(String cinterno, float cantidad) throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         Connection con = null;
         PreparedStatement ps = null;
         ResultSet rs = null;
-        fdc_001 archivo = null;
-        ArrayList<itemxproveedor> arr = new ArrayList<>();
-        ArrayList<ArrayList<itemxproveedor>> matrizProv = new ArrayList<>();
-        String statement = "(select s.FECHA,r.LAB,r.NOMBRE,r.CARGO,s.OBSERVACIONES,a.NOMBRE \n"
-                + "from SOLICITUDPR s, ra r, ao a \n"
-                + "where r.ID = S.RA_ID and s.AO_ID= a.ID)\n"
-                + "union\n"
-                + "(select s.FECHA,\"Compras\",d.NOMBRE,\"DA\",s.OBSERVACIONES,a.NOMBRE \n"
-                + "from SOLICITUDPR s, da d, ao a \n"
-                + "where d.ID_DA = S.DA_ID and s.AO_ID= a.ID)";
-        System.out.println(statement);
+        String statement = "update item set cantidad = cantidad +? where CINTERNO =?";
+        boolean updated = false;
         try {
             con = Conexion.conexion.getConnection();
             ps = con.prepareStatement(statement);
-            rs = ps.executeQuery();
-            rs.next();
-            archivo = new fdc_001(rs.getDate(1).toString(), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), numCot, numSol);
-            archivo = this.datosItem(numSol, archivo);
-            for (itemsfdc_001 i : archivo.getArticulos()) {
-                arr = this.getItemxproveedor(i.getLab(), i.getCodigo());
-                matrizProv.add(arr);
-            }
-            archivo.setProveedores(matrizProv);
-            fdc_001.toString(archivo);
-
-        } catch (SQLException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return archivo;
-    }
-
-    //Metodos del usuario
-    @Override
-    public ArrayList<ItemInventario> itemInventario(BigDecimal id) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        String sector = null;
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String numero;
-        String descripcion;
-        String presentacion;
-        float cantidad;
-        ItemInventario in;
-        String statement = "select CINTERNO, DESCRIPCION, "
-                + "PRESENTACION, CANTIDAD from Item where INVENTARIO = ?";
-        ArrayList<ItemInventario> lista = new ArrayList<>();
-        try {
-            sector = this.getDatosUsuario(id.toString()).getLab();
-
-        } catch (RemoteException ex) {
-            Logger.getLogger(Usuario.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        }
-
-        try {
-            con = Conexion.conexion.getConnection();
-            if (sector.equalsIgnoreCase("MA") || sector.equalsIgnoreCase("MB") || sector.equalsIgnoreCase("FQ")) {
-                statement = "SELECT CINTERNO, DESCRIPCION, PRESENTACION, CANTIDAD"
-                        + " FROM ITEM where INVENTARIO like '%MA%' or INVENTARIO like '%MB%' or INVENTARIO like '%FQ%'";
-                ps = con.prepareStatement(statement);
-            } else if (sector.equalsIgnoreCase("EQ")) {
-                statement = "SELECT CINTERNO, DESCRIPCION, PRESENTACION, CANTIDAD"
-                        + " FROM ITEM where INVENTARIO like '%Gene%' or INVENTARIO like '%ompras%'";
-                ps = con.prepareStatement(statement);
-            } else {
-                ps = con.prepareStatement(statement);
-                ps.setString(1, sector);
-            }
-
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                numero = rs.getString("CINTERNO");
-                descripcion = rs.getString("DESCRIPCION");
-                presentacion = rs.getString("PRESENTACION");
-                cantidad = rs.getFloat("Cantidad");
-                in = new ItemInventario(numero, sector, descripcion, presentacion, cantidad, 0, "", "", "", 0);
-                lista.add(in);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"item inventario\"");
-            System.out.println(ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-
-        return lista;
-    }
-
-    @Override
-    public ArrayList<itemxproveedor> getItemxproveedor(String inv, String codigo) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement;
-        ArrayList<itemxproveedor> listado = new ArrayList<>();
-        itemxproveedor item = null;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "select PROVEEDOR.NOMBRE, ixp.precio, ixp.DISPONIBILIDAD, PROVEEDOR.NIT "
-                    + "from item, ixp, PROVEEDOR "
-                    + "where ixp.ITEM_CINTERNO  = ? and"
-                    + "      item.CINTERNO = ? and "
-                    + "      nit = ixp.PROVEEDOR_NIT";
-            ps = con.prepareStatement(statement);
-            ps.setString(1, codigo);
-            ps.setString(2, codigo);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                item = new itemxproveedor(rs.getString(4), rs.getString(1), rs.getFloat(2), rs.getFloat(3));
-                listado.add(item);
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error funcion \"get item x proveedor\"");
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (rs != null) {
-                    rs.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return listado;
-    }
-
-    @Override
-    public void eliminarAprobacion(BigDecimal numSol) {
-        Connection con = null;
-        PreparedStatement ps = null;
-        String statement;
-        ArrayList<solicitudPr> Revisadas = new ArrayList<>();
-        solicitudPr rev = null;
-        boolean act = false;
-        try {
-            con = Conexion.conexion.getConnection();
-            statement = "delete from APROBADOS a where a.COTIZACION_ID = "
-                    + "(select aprobados.COTIZACION_ID from aprobados, COTIZACION_PROD"
-                    + " where COTIZACION_PROD.COTIZACION_ID = aprobados.COTIZACION_ID and COTIZACION_PROD.NUM_SOL = ?)";
-            ps = con.prepareStatement(statement);
-            ps.setBigDecimal(1, numSol);
+            ps.setFloat(1, cantidad);
+            ps.setString(2, cinterno);
             ps.executeUpdate();
-            act = true;
+            updated = true;
+
         } catch (SQLException ex) {
-            System.out.println("Error funcion \"eliminar aprobacion\"");
+            Logger.getLogger(Usuario.class
+                    .getName()).log(Level.SEVERE, null, ex);
         } finally {
 
             try {
                 if (ps != null) {
                     ps.close();
+                }
+                if (rs != null) {
+                    rs.close();
                 }
                 if (con != null) {
                     con.close();
@@ -3123,51 +1983,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 System.out.println("Error cerrando conexion");
             }
         }
-    }
-
-    @Override
-    public ArrayList<itemsOrdenCompra> pedidoOrdenCompra(String proveedor) throws RemoteException {
-        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
-        Connection con = null;
-        PreparedStatement ps = null;
-        ResultSet rs = null;
-        String statement = "select i.cinterno, i.inventario, i.descripcion, a.caprobada, i.presentacion, c.precio_u, s.observaciones,c.id\n"
-                + "from cotizacion_prod c, aprobados a, item i, solicitud_pr s\n"
-                + "where c.nit = ?  and c.revisada = 'SI' and c.id = a.id_cot and c.cinterno = i.cinterno and s.num_sol = c.num_sol and c.enorden ='NO'";
-        itemsOrdenCompra i = null;
-        ArrayList<itemsOrdenCompra> pedido = new ArrayList<>();
-        System.out.println(statement);
-        try {
-            con = Conexion.conexion.getConnection();
-            ps = con.prepareStatement(statement);
-            ps.setString(1, proveedor);
-            rs = ps.executeQuery();
-            while (rs.next()) {
-                i = new itemsOrdenCompra(rs.getString(1), rs.getString(2), rs.getString(3), rs.getFloat(4), rs.getString(5), rs.getFloat(6), rs.getString(7), rs.getBigDecimal(8));
-                i.setvTotal(i.getCaprobada() * i.getPrecioU());
-                pedido.add(i);
-            }
-            for (itemsOrdenCompra p : pedido) {
-                System.out.println(p.getCinterno());
-            }
-        } catch (SQLException ex) {
-            System.out.println("Error en la funcion \"pedido orden compra\"");
-            System.out.println(ex);
-//Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
-
-            try {
-                if (ps != null) {
-                    ps.close();
-                }
-                if (con != null) {
-                    con.close();
-                }
-            } catch (SQLException ex) {
-                System.out.println("Error cerrando conexion");
-            }
-        }
-        return pedido;
+        return updated;
     }
 
     private String encriptar(String psw) {

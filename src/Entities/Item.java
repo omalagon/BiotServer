@@ -211,7 +211,13 @@ public class Item implements Serializable {
 
     @Override
     public String toString() {
-        return "Entities.Item[ cinterno=" + cinterno + " ]";
+        String s= "Entities.Item[ cinterno=" + cinterno + " ]"+
+               "\nEntities.Item[ descripcion=" + descripcion + " ]"+
+               "\nEntities.Item[ inventario=" + inventario + " ]"+
+               "\nEntities.Item[ presentacion=" + presentacion + " ]"+
+               "\nEntities.Item[ ccalidad=" + ccalidad + " ]"+
+               "\nEntities.Item[ cesp=" + cesp + " ]";
+        return s;
     }
     
     public ItemInventario EntityToItem(Item i)

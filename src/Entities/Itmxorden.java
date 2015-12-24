@@ -28,13 +28,21 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Itmxorden.findAll", query = "SELECT i FROM Itmxorden i"),
-    @NamedQuery(name = "Itmxorden.findByNumorden", query = "SELECT i FROM Itmxorden i WHERE i.numorden = :numorden"),
+    @NamedQuery(name = "Itmxorden.findByNumorden", query = "SELECT i FROM Itmxorden i WHERE i.numorden = :numorden AND i.recibido=:recibido"),
     @NamedQuery(name = "Itmxorden.findByNumorden_item", query = "SELECT i FROM Itmxorden i WHERE i.numorden = :numorden AND i.itemCinterno =:cinterno"),
     @NamedQuery(name = "Itmxorden.findByCaprobada", query = "SELECT i FROM Itmxorden i WHERE i.caprobada = :caprobada"),
     @NamedQuery(name = "Itmxorden.findByPrecioU", query = "SELECT i FROM Itmxorden i WHERE i.precioU = :precioU"),
     @NamedQuery(name = "Itmxorden.findByAllParameters", query = "SELECT i FROM Itmxorden i WHERE i.proveedorNit =:nit AND i.caprobada = :caprobada AND i.precioU =:precio AND i.itemCinterno = :cinterno"),
+    @NamedQuery(name = "Itmxorden.findByAllParameters2", query = "SELECT i FROM Itmxorden i WHERE i.proveedorNit =:nit AND i.caprobada = :caprobada AND i.precioU =:precio AND i.itemCinterno = :cinterno and i.numSolAsociado= :numsol"),
     @NamedQuery(name = "Itmxorden.findByIdOCompra", query = "SELECT i FROM Itmxorden i WHERE i.idOCompra = :idOCompra")})
 public class Itmxorden implements Serializable {
+
+    // @Max(value=?)  @Min(value=?)//if you know range of your decimal fields consider using these annotations to enforce field validation
+    @Column(name = "numSolAsociado")
+    private Double numSolAsociado;
+
+    @Column(name = "recibido")
+    private String recibido;
 
     private static final long serialVersionUID = 1L;
     @Basic(optional = false)
@@ -149,6 +157,22 @@ public class Itmxorden implements Serializable {
     @Override
     public String toString() {
         return "Entities.Itmxorden[ idOCompra=" + idOCompra + " ]";
+    }
+
+    public String getRecibido() {
+        return recibido;
+    }
+
+    public void setRecibido(String recibido) {
+        this.recibido = recibido;
+    }
+
+    public Double getNumSolAsociado() {
+        return numSolAsociado;
+    }
+
+    public void setNumSolAsociado(Double numSolAsociado) {
+        this.numSolAsociado = numSolAsociado;
     }
     
 }
