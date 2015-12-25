@@ -1414,7 +1414,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         List<Itmxorden> resultList = q.getResultList();
         double numorden = -1;
                 if(resultList!=null && !resultList.isEmpty() && resultList.get(0)!=null)
-                    resultList.get(0).getNumorden();
+                    numorden = resultList.get(0).getNumorden();
         emf.close();
         return new Double(numorden).intValue();
     }
