@@ -1703,6 +1703,33 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             return rec;
         }
     }
+    @Override
+    public recepcionProd getDatosRec2(BigDecimal numorden, String id) throws RemoteException {
+        recepcionProd rec = null;
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itmxorden.findByNumorden2");
+        q.setParameter("numorden", new Double(numorden.toString()));
+        List<Itmxorden> resultList = q.getResultList();
+        ArrayList<itemRecep> items = new ArrayList<>();
+        proveedor p = new proveedor();
+        for (Itmxorden i : resultList) {
+            Proveedor prov = i.getProveedorNit();
+            p = new proveedor(prov.getNit(), prov.getNombre(), prov.getDir(), prov.getTel(), prov.getFax(), prov.getCiudad(), prov.getCelular(), prov.getCorreo(), p.getContacto());
+            Item itm = i.getItemCinterno();
+            items.add(new itemRecep(itm.getCinterno(), "", new Float(i.getCaprobada()), new Float(i.getPrecioU())));
+        }
+        Query qq = em.createNamedQuery("Ordencompra.findByNumOrden");
+        qq.setParameter("numOrden", new Double(numorden.toString()));
+        if (qq.getResultList().isEmpty()) {
+            return null;
+        } else {
+            Ordencompra o = (Ordencompra) qq.getResultList().get(0);
+            emf.close();
+            rec = new recepcionProd(numorden, p, id, items, o.getObservaciones());
+            return rec;
+        }
+    }
 
     /**
      *
@@ -1763,9 +1790,28 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         for (Evaluacionprov e : resultList) {
             ev = new evProv(e.getNitProv(), e.getNumorden(), e.getEv1(), e.getEv2(), e.getEv3(), e.getEv4(), e.getEv5(), e.getEv6(), e.getEv7(), e.getEv8());
         }
+        emf.close();
         return ev;
     }
 
+    /**
+     *
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public ArrayList<Integer> numerosDeOrden() throws RemoteException
+    {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        OrdencompraJpaController contr = new OrdencompraJpaController(emf);
+        List<Ordencompra> resultList = contr.findOrdencompraEntities();
+        ArrayList<Integer> ordenes = new ArrayList<>();
+        for (Ordencompra r : resultList) {
+            ordenes.add(r.getNumOrden().intValue());
+        }
+        emf.close();
+        return ordenes;
+    }
     /**
      *
      * @param mes
