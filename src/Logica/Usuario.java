@@ -1812,6 +1812,20 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         emf.close();
         return ordenes;
     }
+    
+    @Override
+    public ArrayList<Integer> numerosDeOrdenRecibidas() throws RemoteException
+    {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Recepcion.findAllOrdenes");
+        List<Ordencompra> resultList = q.getResultList();
+        ArrayList<Integer> numorden = new ArrayList<>();
+        for (Ordencompra r : resultList) {
+            numorden.add(r.getNumOrden().intValue());
+        }
+        return numorden;
+    }
     /**
      *
      * @param mes

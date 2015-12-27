@@ -29,6 +29,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Recepcion.findAll", query = "SELECT r FROM Recepcion r"),
+    @NamedQuery(name = "Recepcion.findAllOrdenes", query = "SELECT DISTINCT r.numOrden FROM Recepcion r"),
     @NamedQuery(name = "Recepcion.findByNumorden", query = "SELECT r FROM Recepcion r WHERE r.numOrden = :numorden"),
     @NamedQuery(name = "Recepcion.findByFechallegada", query = "SELECT r FROM Recepcion r WHERE r.fechallegada = :fechallegada"),
     @NamedQuery(name = "Recepcion.findByFechavencimiento", query = "SELECT r FROM Recepcion r WHERE r.fechavencimiento = :fechavencimiento"),
