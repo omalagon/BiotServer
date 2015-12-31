@@ -61,6 +61,14 @@ public class Descargo implements Serializable {
     public Descargo() {
     }
 
+    public Descargo(Date fecha,Usuario idUsuario, String area, Double cantidad, Item cinterno ) {
+        this.fecha = fecha;
+        this.area = area;
+        this.cantidad = cantidad;
+        this.cinterno = cinterno;
+        this.idUsuario = idUsuario;
+    }
+
     public Descargo(Double id) {
         this.id = id;
     }

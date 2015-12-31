@@ -26,6 +26,7 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement
 @NamedQueries({
     @NamedQuery(name = "Tablamostrar.findAll", query = "SELECT t FROM Tablamostrar t"),
+    @NamedQuery(name = "Tablamostrar.findByAllParameters", query = "SELECT t FROM Tablamostrar t where t.idUsuario =:idU AND t.idArchivo=:idA AND t.tipoArchivo = :tipoA"),
     @NamedQuery(name = "Tablamostrar.findByIdMostrar", query = "SELECT t FROM Tablamostrar t WHERE t.idMostrar = :idMostrar"),
     @NamedQuery(name = "Tablamostrar.findByTipoArchivo", query = "SELECT t FROM Tablamostrar t WHERE t.tipoArchivo = :tipoArchivo"),
     @NamedQuery(name = "Tablamostrar.findByIdArchivo", query = "SELECT t FROM Tablamostrar t WHERE t.idArchivo = :idArchivo"),

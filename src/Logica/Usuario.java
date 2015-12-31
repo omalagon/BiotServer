@@ -910,6 +910,19 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 }
             }
             itemsEnviados = true;
+            TablamostrarJpaController conTabla = new TablamostrarJpaController(emf);
+            Tablamostrar tablamostrar = new Tablamostrar();
+            tablamostrar.setIdArchivo(numSol);
+            tablamostrar.setIdUsuario(sol.getIdSolicitante());
+            tablamostrar.setTipoArchivo("Solicitud");
+            tablamostrar.setMostrar("SI");
+            conTabla.create(tablamostrar);
+            tablamostrar.setTipoArchivo("SolicitudRev");
+            tablamostrar.setMostrar("SI");
+            conTabla.create(tablamostrar);
+            tablamostrar.setTipoArchivo("SolicitudNoRev");
+            tablamostrar.setMostrar("SI");
+            conTabla.create(tablamostrar);
         }
         if (itemsEnviados == false) {
             try {
@@ -941,7 +954,18 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             users datosUsuario = this.getDatosUsuario(id);
             s.setNombreSolicitante(datosUsuario.getNombre());
             s.setArea(datosUsuario.getLab());
-            retorno.add(s);
+            Query qMostrar = em.createNamedQuery("Tablamostrar.findByAllParameters");
+            qMostrar.setParameter("idU", id);
+            qMostrar.setParameter("idA", new Double(s.getNum_sol().toString()));
+            qMostrar.setParameter("tipoA", "Solicitud");
+            Tablamostrar get = new Tablamostrar();
+            if (qMostrar.getResultList() != null && !qMostrar.getResultList().isEmpty()) {
+                get = (Tablamostrar) qMostrar.getResultList().get(0);
+                if (get.getMostrar().equalsIgnoreCase("SI") && get.getTipoArchivo().equalsIgnoreCase("Solicitud")) {
+                    retorno.add(s);
+                }
+            }
+
         }
         emf.close();
         return retorno;
@@ -1028,7 +1052,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
      * "", las no revisadas "NO" y las revisadas "SI"
      */
     @Override
-    public ArrayList<solicitudPr> getSolicitudes(String revisado) throws RemoteException {
+    public ArrayList<solicitudPr> getSolicitudes(String revisado, String idUsuario) throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         ArrayList<solicitudPr> solicitudes = new ArrayList<>();
         EntityManager em = emf.createEntityManager();
@@ -1040,9 +1064,36 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             users datosUsuario = this.getDatosUsuario(s.getIdSolicitante());
             sol.setNombreSolicitante(datosUsuario.getNombre());
             sol.setArea(datosUsuario.getLab());
-            solicitudes.add(sol);
+            if ("".equalsIgnoreCase(idUsuario)) {
+                solicitudes.add(sol);
+            } else {
+                Query qMostrar = em.createNamedQuery("Tablamostrar.findByAllParameters");
+                qMostrar.setParameter("idU", idUsuario);
+                qMostrar.setParameter("idA", s.getNumSol());
+                System.out.println(idUsuario + " " + s.getNumSol());
+                if (revisado.equalsIgnoreCase("NO")) {
+                    qMostrar.setParameter("tipoA", "SolicitudNoRev");
+                    Tablamostrar get = new Tablamostrar();
+                    if (qMostrar.getResultList() != null && !qMostrar.getResultList().isEmpty()) {
+                        get = (Tablamostrar) qMostrar.getResultList().get(0);
+                        if (get.getMostrar().equalsIgnoreCase("SI") && get.getTipoArchivo().equalsIgnoreCase("SolicitudNoRev")) {
+                            solicitudes.add(sol);
+                            System.out.println("entra");
+                        }
+                    }
+                } else {
+                    qMostrar.setParameter("tipoA", "SolicitudRev");
+                    Tablamostrar get = new Tablamostrar();
+                    if (qMostrar.getResultList() != null && !qMostrar.getResultList().isEmpty()) {
+                        get = (Tablamostrar) qMostrar.getResultList().get(0);
+                        if (get.getMostrar().equalsIgnoreCase("SI") && get.getTipoArchivo().equalsIgnoreCase("SolicitudRev")) {
+                            solicitudes.add(sol);
+                        }
+                    }
+                }
+            }
         }
-        //emf.close();
+        emf.close();
         return solicitudes;
     }
 
@@ -1114,6 +1165,14 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 itemJpaController.edit(findItem);
                 this.asociarItem(item.getNumero(), proveedor.get(indexProv), Float.toString(item.getPrecio()));
                 indexProv++;
+                Tablamostrar tablamostrar = new Tablamostrar();
+                tablamostrar.setIdArchivo(sol.getNum_sol().doubleValue());
+                tablamostrar.setIdUsuario(sol.getIdAO());
+                tablamostrar.setTipoArchivo("SolicitudRev");
+                tablamostrar.setMostrar("SI");
+                TablamostrarJpaController conTabla = new TablamostrarJpaController(emf);
+                conTabla.create(tablamostrar);
+
             }
 
             if (itemsAprobado.size() == items.size()) {
@@ -1148,7 +1207,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         if (!resultList.isEmpty()) {
             for (Ixp ixp : resultList) {
                 proveedor datosProveedor = this.getDatosProveedor(ixp.getNit());
-                itemxproveedor itx =new itemxproveedor(datosProveedor.getNombre(), new Float(ixp.getPrecio()), ixp.getCinterno());
+                itemxproveedor itx = new itemxproveedor(datosProveedor.getNombre(), new Float(ixp.getPrecio()), ixp.getCinterno());
                 itx.setNIT(ixp.getNit());
                 retorno.add(itx);
             }
@@ -1413,12 +1472,13 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         q.setParameter("numsol", new Double(numSol));
         List<Itmxorden> resultList = q.getResultList();
         double numorden = -1;
-                if(resultList!=null && !resultList.isEmpty() && resultList.get(0)!=null)
-                    numorden = resultList.get(0).getNumorden();
+        if (resultList != null && !resultList.isEmpty() && resultList.get(0) != null) {
+            numorden = resultList.get(0).getNumorden();
+        }
         emf.close();
         return new Double(numorden).intValue();
     }
-    
+
     //Descargos
     /**
      *
@@ -1547,6 +1607,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             for (itemRecep rec : articulos) {
                 if (i.getItemCinterno().getCinterno().equalsIgnoreCase(rec.getCinterno())) {
                     try {
+                        this.updateCantidad(rec.getCinterno(), -rec.getcAprobada());
                         i.setRecibido("NO");
                         itm.edit(i);
                     } catch (Exception ex) {
@@ -1703,6 +1764,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             return rec;
         }
     }
+
     @Override
     public recepcionProd getDatosRec2(BigDecimal numorden, String id) throws RemoteException {
         recepcionProd rec = null;
@@ -1796,12 +1858,10 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
 
     /**
      *
-     * @return
-     * @throws RemoteException
+     * @return @throws RemoteException
      */
     @Override
-    public ArrayList<Integer> numerosDeOrden() throws RemoteException
-    {
+    public ArrayList<Integer> numerosDeOrden() throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         OrdencompraJpaController contr = new OrdencompraJpaController(emf);
         List<Ordencompra> resultList = contr.findOrdencompraEntities();
@@ -1812,10 +1872,9 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         emf.close();
         return ordenes;
     }
-    
+
     @Override
-    public ArrayList<Integer> numerosDeOrdenRecibidas() throws RemoteException
-    {
+    public ArrayList<Integer> numerosDeOrdenRecibidas() throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
         Query q = em.createNamedQuery("Recepcion.findAllOrdenes");
@@ -1826,6 +1885,37 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
         }
         return numorden;
     }
+
+    /**
+     *
+     * @param idUsuario
+     * @param idRecurso
+     * @param tipoRecurso
+     * @return
+     * @throws RemoteException
+     */
+    @Override
+    public boolean ocultar(String idUsuario, String idRecurso, String tipoRecurso) throws RemoteException {
+        try {
+            EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+            EntityManager em = emf.createEntityManager();
+            Query q = em.createNamedQuery("Tablamostrar.findByAllParameters");
+            q.setParameter("idU", idUsuario);
+            q.setParameter("idA", new Double(idRecurso));
+            q.setParameter("tipoA", tipoRecurso);
+            List<Tablamostrar> resultList = q.getResultList();
+            Integer idMostrar = resultList.get(0).getIdMostrar();
+            TablamostrarJpaController controller = new TablamostrarJpaController(emf);
+            Tablamostrar found = controller.findTablamostrar(idMostrar);
+            found.setMostrar("NO");
+            controller.edit(found);
+            return true;
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
+    }
+
     /**
      *
      * @param mes
@@ -2044,6 +2134,24 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
             }
         }
         return updated;
+    }
+
+    @Override
+    public boolean editarFormato(int formato, datosFormatos datos) throws RemoteException {
+        boolean hecho = false;
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        DatosformatosJpaController controller = new DatosformatosJpaController(emf);
+        Datosformatos found = controller.findDatosformatos(formato);
+        found.setRevision(datos.getRevision());
+        found.setFechaactualizacion(datos.getFechaActualizacion());
+        found.setTitulo(datos.getTitulo());
+        try {
+            controller.edit(found);
+            hecho = true;
+        } catch (Exception ex) {
+            Logger.getLogger(Usuario.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return hecho;
     }
 
     private String encriptar(String psw) {
