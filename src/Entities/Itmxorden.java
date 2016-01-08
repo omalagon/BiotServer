@@ -35,6 +35,7 @@ import javax.xml.bind.annotation.XmlRootElement;
     @NamedQuery(name = "Itmxorden.findByPrecioU", query = "SELECT i FROM Itmxorden i WHERE i.precioU = :precioU"),
     @NamedQuery(name = "Itmxorden.findByAllParameters", query = "SELECT i FROM Itmxorden i WHERE i.proveedorNit =:nit AND i.caprobada = :caprobada AND i.precioU =:precio AND i.itemCinterno = :cinterno"),
     @NamedQuery(name = "Itmxorden.findByAllParameters2", query = "SELECT i FROM Itmxorden i WHERE i.proveedorNit =:nit AND i.caprobada = :caprobada AND i.precioU =:precio AND i.itemCinterno = :cinterno and i.numSolAsociado= :numsol"),
+    @NamedQuery(name = "Itmxorden.findByAllParameters3", query = "SELECT i FROM Itmxorden i WHERE i.proveedorNit =:nit AND i.caprobada = :caprobada AND i.itemCinterno = :cinterno and i.numSolAsociado= :numsol"),
     @NamedQuery(name = "Itmxorden.findByIdOCompra", query = "SELECT i FROM Itmxorden i WHERE i.idOCompra = :idOCompra")})
 public class Itmxorden implements Serializable {
 

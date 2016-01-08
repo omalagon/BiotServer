@@ -1393,17 +1393,43 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
     public int buscarOcompra(ItemInventario i, String proveedor) throws RemoteException {
         EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
         EntityManager em = emf.createEntityManager();
-        Query q = em.createNamedQuery("Itmxorden.findByAllParameters");
+        Query q = em.createNamedQuery("Itmxorden.findByAllParameters2");
+        q.setParameter("numsol", new Double(i.getNumSolAsociado()));
         q.setParameter("nit", new ProveedorJpaController(emf).findProveedor(proveedor));
         q.setParameter("caprobada", i.getCantidadAprobada());
         q.setParameter("precio", i.getPrecio());
         q.setParameter("cinterno", new ItemJpaController(emf).findItem(i.getNumero()));
         List<Itmxorden> resultList = q.getResultList();
-        double numorden = resultList.get(0).getNumorden();
+        double numorden = -1;
+        if (!resultList.isEmpty() && resultList != null) {
+            numorden = resultList.get(0).getNumorden();
+        }
         emf.close();
         return new Double(numorden).intValue();
     }
 
+    @Override
+    public Double buscarPrecio(ItemInventario i, String proveedor) throws RemoteException
+    {
+        EntityManagerFactory emf = Persistence.createEntityManagerFactory("Biot_ServerPU");
+        EntityManager em = emf.createEntityManager();
+        Query q = em.createNamedQuery("Itmxorden.findByAllParameters3");
+        q.setParameter("numsol", new Double(i.getNumSolAsociado()));
+        q.setParameter("nit", new ProveedorJpaController(emf).findProveedor(proveedor));
+        q.setParameter("caprobada", i.getCantidadAprobada());
+        q.setParameter("cinterno", new ItemJpaController(emf).findItem(i.getNumero()));
+        List<Itmxorden> resultList = q.getResultList();
+        double precio = 0;
+        if (!resultList.isEmpty() && resultList != null) {
+            precio = resultList.get(0).getPrecioU();
+        }
+        emf.close();
+        return new Double(precio);
+    }
+    
+    
+    
+    @Override
     public boolean devolverOCompra(ItemInventario itm, double numorden) throws RemoteException {
         boolean hecho = false;
         try {
@@ -1557,6 +1583,7 @@ public class Usuario extends UnicastRemoteObject implements interfaces.Usuario, 
                 findItem.setCcalidad(a.getcCalidad());
                 findItem.setCesp(a.getcEsp());
                 itemJpaController.edit(findItem);
+                this.updateCantidad(findItem.getCinterno(), a.getcAprobada());
                 r = new Recepcion(a.getfLlegada());
                 r.setFechavencimiento(a.getfVencimiento());
                 r.setCcalidad(a.getcCalidad());
